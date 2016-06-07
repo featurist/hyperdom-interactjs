@@ -1,16 +1,47 @@
 var plastiq = require('plastiq');
 var interact = require('interact.js');
 
+var translateReg = /translate\((\d+)px,\s*(\d+)px\)/i;
+var rotateReg = /rotate\((\d+)deg\)/i;
+
 function dragMoveListener(event) {
-  var target = event.target,
-      x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx,
-      y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+  var target = event.target;
+  var x, y;
+  var transform = target.style.transform || target.style.webkitTransform;
+  var existing = transform.match(translateReg);
+  if (existing) {
+    x = Number(existing[1]);
+    y = Number(existing[2]);
+  } else {
+    x = y = 0;
+  }
+  x += event.dx;
+  y += event.dy;
+  var newTranslate = 'translate(' + x + 'px, ' + y + 'px)';
+  if (existing) {
+    target.style.webkitTransform = target.style.transform = transform.replace(translateReg, newTranslate);
+  } else {
+    target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
+  }
+}
 
-  target.style.webkitTransform =
-    target.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
-
-  target.setAttribute('data-x', x);
-  target.setAttribute('data-y', y);
+function rotateMoveListener(event) {
+  var target = event.target;
+  var deg;
+  var transform = target.style.transform || target.style.webkitTransform;
+  var existing = transform.match(rotateReg);
+  if (existing) {
+    deg = Number(existing[1]);
+  } else {
+    deg = 0;
+  }
+  deg += event.dx;
+  var newTranslate = 'rotate(' + deg + 'deg)';
+  if (existing) {
+    target.style.webkitTransform = target.style.transform = transform.replace(rotateReg, newTranslate);
+  } else {
+    target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
+  }
 }
 
 module.exports = {
@@ -33,19 +64,11 @@ module.exports = {
   createSnapGrid: interact.createSnapGrid,
 
   rotatable: function(element) {
-    var angle = 0;
-
     return plastiq.html.component(
       {
         onadd: function (element) {
           interact(element.parentNode).gesturable({
-            onmove: function (event) {
-              angle += event.da;
-
-              element.style.webkitTransform =
-              element.style.transform =
-                'rotate(' + angle + 'deg)';
-            }
+            onmove: rotateMoveListener
           });
         },
         onupdate: function (element) {
