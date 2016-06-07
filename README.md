@@ -20,7 +20,9 @@ function render(model) {
     ),
     interact.draggable(
       interact.rotatable(
-        h('.blue', 'Mineral')
+        interact.resizable(
+          h('.blue', 'Mineral')
+        )
       )
     )
   );

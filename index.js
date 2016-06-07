@@ -1,10 +1,34 @@
 var plastiq = require('plastiq');
 var interact = require('interact.js');
 
-document.body.innerHTML += '<div id="debug">DEBUG</div>';
+var translateReg = /translate\((-?[\d\.]+)px,\s*(-?\d+)px\)/i;
+var rotateReg = /rotate\((-?[\d\.]+)deg\)/i;
+var scaleReg = /scale\((-?[\d\.]+)\)/i;
 
-var translateReg = /translate\((-?\d+)px,\s*(-?\d+)px\)/i;
-var rotateReg = /rotate\((-?\d+)deg\)/i;
+function plastiqInteractJs(options, vnode) {
+  return plastiq.html.component(
+    {
+      onadd: function (element) {
+        if (options.draggable) {
+          interact(element).draggable({
+            onmove: dragMoveListener
+          });
+        }
+        if (options.rotatable || options.scalable) {
+          interact(element).gesturable({
+            onmove: makeGestureMoveListener(options)
+          });
+        }
+      },
+      onupdate: function (element) {
+      }
+    },
+    vnode
+  );
+}
+module.exports = plastiqInteractJs;
+
+plastiqInteractJs.createSnapGrid = interact.createSnapGrid;
 
 function dragMoveListener(event) {
   var target = event.target;
@@ -27,8 +51,18 @@ function dragMoveListener(event) {
   }
 }
 
+function makeGestureMoveListener(options) {
+  return function(event) {
+    if (options.rotatable) {
+      rotateMoveListener(event);
+    }
+    if (options.scalable) {
+      scaleMoveListener(event);
+    }
+  }
+}
+
 function rotateMoveListener(event) {
-  document.getElementById('debug').innerHTML = 'ROTATE';
   var target = event.target;
   var deg;
   var transform = target.style.transform || target.style.webkitTransform;
@@ -47,37 +81,21 @@ function rotateMoveListener(event) {
   }
 }
 
-module.exports = {
-  draggable: function(options, element) {
-    if (!element) { element = options; }
-    options = options || {};
-    options.onmove = dragMoveListener;
-    return plastiq.html.component(
-      {
-        onadd: function (element) {
-          interact(element).draggable(options);
-        },
-        onupdate: function (element) {
-        }
-      },
-      element
-    );
-  },
-
-  createSnapGrid: interact.createSnapGrid,
-
-  rotatable: function(element) {
-    return plastiq.html.component(
-      {
-        onadd: function (element) {
-          interact(element).gesturable({
-            onmove: rotateMoveListener
-          });
-        },
-        onupdate: function (element) {
-        }
-      },
-      element
-    );
+function scaleMoveListener(event) {
+  var target = event.target;
+  var deg;
+  var transform = target.style.transform || target.style.webkitTransform;
+  var existing = transform.match(scaleReg);
+  if (existing) {
+    scale = Number(existing[1]);
+  } else {
+    scale = 1;
+  }
+  scale += event.ds;
+  var newTranslate = 'scale(' + scale + ')';
+  if (existing) {
+    target.style.webkitTransform = target.style.transform = transform.replace(scaleReg, newTranslate);
+  } else {
+    target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
   }
 }
