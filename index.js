@@ -1,8 +1,10 @@
 var plastiq = require('plastiq');
 var interact = require('interact.js');
 
-var translateReg = /translate\((\d+)px,\s*(\d+)px\)/i;
-var rotateReg = /rotate\((\d+)deg\)/i;
+document.body.innerHTML += '<div id="debug">DEBUG</div>';
+
+var translateReg = /translate\((-?\d+)px,\s*(-?\d+)px\)/i;
+var rotateReg = /rotate\((-?\d+)deg\)/i;
 
 function dragMoveListener(event) {
   var target = event.target;
@@ -26,6 +28,7 @@ function dragMoveListener(event) {
 }
 
 function rotateMoveListener(event) {
+  document.getElementById('debug').innerHTML = 'ROTATE';
   var target = event.target;
   var deg;
   var transform = target.style.transform || target.style.webkitTransform;
@@ -35,7 +38,7 @@ function rotateMoveListener(event) {
   } else {
     deg = 0;
   }
-  deg += event.dx;
+  deg += event.da;
   var newTranslate = 'rotate(' + deg + 'deg)';
   if (existing) {
     target.style.webkitTransform = target.style.transform = transform.replace(rotateReg, newTranslate);
@@ -67,7 +70,7 @@ module.exports = {
     return plastiq.html.component(
       {
         onadd: function (element) {
-          interact(element.parentNode).gesturable({
+          interact(element).gesturable({
             onmove: rotateMoveListener
           });
         },
