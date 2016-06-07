@@ -12,8 +12,11 @@ pre, textarea {
   background-color: #efefef;
   clear: both;
   overflow: scroll;
+  margin-bottom: 20px;
 }
 .red, .green, .blue {
+  transform-origin: 50% 50%;
+  -webkit-transform-origin: 50% 50%;
   width: 90px;
   height: 90px;
   line-height: 90px;
