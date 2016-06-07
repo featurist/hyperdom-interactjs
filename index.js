@@ -13,7 +13,6 @@ function plastiqInteractJs(options, vnode) {
       onadd: function (element) {
         if (transform) {
           element.style.transform = writeTransform(transform);
-          console.log("WRITING:", transform, writeTransform(transform));
         }
         if (options.draggable) {
           var opts = (options.draggable === true) ?
