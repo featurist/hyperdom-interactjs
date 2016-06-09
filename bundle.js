@@ -24,6 +24,13 @@ function render(model) {
       },
       h('.blue', 'Mineral')
     ),
+    interact.dropzone({
+      accept: '*',
+      overlap: 0.5,
+      ondrop: function(event) {
+        event.target.style.backgroundColor = 'purple';
+      }
+    }, h('.bucket', 'Bucket')),
     h('pre', JSON.stringify(model, null, 2))
   );
 }
@@ -72,6 +79,14 @@ function plastiqInteractJs(options, vnode) {
   );
 }
 module.exports = plastiqInteractJs;
+
+plastiqInteractJs.dropzone = function(options, vnode) {
+  return plastiq.html.component({
+    onadd: function(element) {
+      interact(element).dropzone(options);
+    }
+  }, vnode);
+}
 
 plastiqInteractJs.createSnapGrid = interact.createSnapGrid;
 
