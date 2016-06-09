@@ -2,6 +2,8 @@
 
 Multi-touch gestures for plastiq.
 
+[Demo](http://www.featurist.co.uk/plastiq-interactjs)
+
 ## Example
 
 ```JavaScript
@@ -30,6 +32,13 @@ function render(model) {
       },
       h('.blue', 'Mineral')
     ),
+    interact.dropzone({
+      accept: '*',
+      overlap: 0.5,
+      ondrop: function(event) {
+        event.target.style.backgroundColor = 'purple';
+      }
+    }, h('.bucket', 'Bucket')),
     h('pre', JSON.stringify(model, null, 2))
   );
 }

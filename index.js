@@ -34,6 +34,14 @@ function plastiqInteractJs(options, vnode) {
 }
 module.exports = plastiqInteractJs;
 
+plastiqInteractJs.dropzone = function(options, vnode) {
+  return plastiq.html.component({
+    onadd: function(element) {
+      interact(element).dropzone(options);
+    }
+  }, vnode);
+}
+
 plastiqInteractJs.createSnapGrid = interact.createSnapGrid;
 
 function writeTransform(t) {
