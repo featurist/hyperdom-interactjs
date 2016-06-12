@@ -18,12 +18,18 @@ function plastiqInteractJs(options, vnode) {
           var opts = (options.draggable === true) ?
             {} : options.draggable || {};
           opts.onmove = plastiq.html.refreshify(makeDragMoveListener(binding));
-          interact(element).draggable(opts);
+          var draggable = interact(element).draggable(opts);
+          if (options.withDraggable) {
+            options.withDraggable(draggable);
+          }
         }
         if (options.rotatable || options.scalable) {
-          interact(element).gesturable({
+          var gesturable = interact(element).gesturable({
             onmove: plastiq.html.refreshify(makeGestureMoveListener(options, binding))
           });
+          if (options.withGesturable) {
+            options.withGesturable(gesturable);
+          }
         }
       },
       onupdate: function (element) {

@@ -19,7 +19,17 @@ function render(model) {
         binding: [model, 'mineral'],
         draggable: { inertia: true },
         rotatable: true,
-        scalable: true
+        scalable: true,
+        withDraggable: function(draggable) {
+          draggable.on('move', function() {
+            model.mineral.moves++;
+          });
+        },
+        withGesturable: function(gesturable) {
+          gesturable.on('move', function() {
+            model.mineral.gestures++;
+          });
+        }
       },
       h('.blue', 'Mineral')
     ),
@@ -37,7 +47,7 @@ function render(model) {
 var model = {
   animal:    { x: 0,  y: 0, scale: 1.1, rotation: 1  },
   vegetable: { x: 30, y: 0, scale: 1.0, rotation: 0  },
-  mineral:   { x: 60, y: 0, scale: 1.1, rotation: -3 }
+  mineral:   { x: 60, y: 0, scale: 1.1, rotation: -3, moves: 0, gestures: 0 }
 }
 
 plastiq.append(document.getElementById('example'), render, model);
