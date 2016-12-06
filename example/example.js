@@ -1,6 +1,6 @@
-var plastiq = require('plastiq');
+var hyperdom = require('hyperdom');
 var interact = require('../');
-var h = plastiq.html;
+var h = hyperdom.html;
 
 function render(model) {
   return h('.page',
@@ -50,4 +50,4 @@ var model = {
   mineral:   { x: 60, y: 0, scale: 1.1, rotation: -3, moves: 0, gestures: 0 }
 }
 
-plastiq.append(document.getElementById('example'), render, model);
+hyperdom.append(document.getElementById('example'), render, model);

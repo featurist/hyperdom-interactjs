@@ -1,25 +1,28 @@
 {
-  "name": "plastiq-interactjs",
+  "name": "hyperdom-interactjs",
   "version": "1.2.0",
-  "description": "multi-touch gestures for plastiq using interact.js",
+  "description": "multi-touch gestures for hyperdom using interact.js",
   "main": "index.js",
   "scripts": {
     "example": "browserify example/example.js > example/bundle.js",
     "watch": "watchify example/example.js -o example/bundle.js"
   },
   "keywords": [
-    "plastiq",
+    "hyperdom",
     "interact",
     "multi",
     "touch"
   ],
   "dependencies": {
-    "interact.js": "1.2.6",
-    "plastiq": "^1.26.0"
+    "interact.js": "1.2.6"
+  },
+  "peerDependencies": {
+    "hyperdom": "0.2.0"
   },
   "devDependencies": {
     "browserify": "13.0.1",
-    "watchify": "3.7.0"
+    "watchify": "3.7.0",
+    "hyperdom": "0.2.0"
   },
   "author": "Josh Chisholm <joshuachisholm@gmail.com>",
   "contributors": [],
@@ -29,10 +32,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/featurist/plastiq-interactjs.git"
+    "url": "https://github.com/featurist/hyperdom-interactjs.git"
   },
   "bugs": {
-    "url": "https://github.com/featurist/plastiq-interactjs/issues"
+    "url": "https://github.com/featurist/hyperdom-interactjs/issues"
   },
-  "homepage": "https://github.com/featurist/plastiq-interactjs"
+  "homepage": "https://github.com/featurist/hyperdom-interactjs"
 }

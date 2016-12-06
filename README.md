@@ -1,8 +1,8 @@
-# plastiq-interactjs
+# hyperdom-interactjs
 
-Multi-touch gestures for plastiq.
+Multi-touch gestures for hyperdom.
 
-[Demo](http://featurist.co.uk/plastiq-interactjs)
+[Demo](http://featurist.co.uk/hyperdom-interactjs)
 
 ## Example
 

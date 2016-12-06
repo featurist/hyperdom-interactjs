@@ -1,14 +1,14 @@
-var plastiq = require('plastiq');
+var hyperdom = require('hyperdom');
 var interact = require('interact.js');
 
 var translateReg = /translate\((-?[\d\.]+)px,\s*(-?[\d\.]+)px\)/i;
 var rotateReg = /rotate\((-?[\d\.]+)deg\)/i;
 var scaleReg = /scale\((-?[\d\.]+)\)/i;
 
-function plastiqInteractJs(options, vnode) {
-  var binding = plastiq.html.binding(options.binding);
+function hyperdomInteractJs(options, vnode) {
+  var binding = hyperdom.html.binding(options.binding);
   var transform = binding.get();
-  return plastiq.html.component(
+  return hyperdom.html.component(
     {
       onadd: function (element) {
         if (transform) {
@@ -17,7 +17,7 @@ function plastiqInteractJs(options, vnode) {
         if (options.draggable) {
           var opts = (options.draggable === true) ?
             {} : options.draggable || {};
-          opts.onmove = plastiq.html.refreshify(makeDragMoveListener(binding));
+          opts.onmove = hyperdom.html.refreshify(makeDragMoveListener(binding));
           var draggable = interact(element).draggable(opts);
           if (options.withDraggable) {
             options.withDraggable(draggable);
@@ -25,7 +25,7 @@ function plastiqInteractJs(options, vnode) {
         }
         if (options.rotatable || options.scalable) {
           var gesturable = interact(element).gesturable({
-            onmove: plastiq.html.refreshify(makeGestureMoveListener(options, binding))
+            onmove: hyperdom.html.refreshify(makeGestureMoveListener(options, binding))
           });
           if (options.withGesturable) {
             options.withGesturable(gesturable);
@@ -38,17 +38,17 @@ function plastiqInteractJs(options, vnode) {
     vnode
   );
 }
-module.exports = plastiqInteractJs;
+module.exports = hyperdomInteractJs;
 
-plastiqInteractJs.dropzone = function(options, vnode) {
-  return plastiq.html.component({
+hyperdomInteractJs.dropzone = function(options, vnode) {
+  return hyperdom.html.component({
     onadd: function(element) {
       interact(element).dropzone(options);
     }
   }, vnode);
 }
 
-plastiqInteractJs.createSnapGrid = interact.createSnapGrid;
+hyperdomInteractJs.createSnapGrid = interact.createSnapGrid;
 
 function writeTransform(t) {
   return "translate(" + t.x + "px," + t.y + "px) scale(" + t.scale + ") rotate(" + t.rotation + "deg)";
