@@ -14,7 +14,7 @@
     "touch"
   ],
   "dependencies": {
-    "interact.js": "1.2.6"
+    "interact.js": "1.2.8"
   },
   "peerDependencies": {
     "hyperdom": "0.2.0"
