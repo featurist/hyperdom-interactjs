@@ -5,7 +5,10 @@ var h = hyperdom.html;
 
 function render(model) {
   return h('.page',
-    interact({ binding: [model, 'animal'], draggable: true },
+    interact({
+        binding: [model, 'animal'],
+        draggable: true
+      },
       h('.red', 'Animal')
     ),
     interact({
@@ -44,8 +47,8 @@ function render(model) {
     h('.object-container',
       interact({
           binding: [model, 'restricted'],
+          scalable: true,
           draggable: {
-            snap: { targets: [ interact.createSnapGrid({ x: 20, y: 20 }) ] },
             restrict: {
               restriction: 'parent',
               endOnly: true,
