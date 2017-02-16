@@ -17,7 +17,7 @@
 
     <pre>
 var hyperdom = require('hyperdom');
-var interact = require('hyperdom-interactjs');
+var interact = require('../');
 var h = hyperdom.html;
 
 function render(model) {
@@ -77,15 +77,43 @@ function render(model) {
         h('.pink', 'Restricted')
       )
     ),
+    interact({
+        binding: [model, 'resizable'],
+        draggable: { inertia: true },
+        resizable: {
+          preserveAspectRatio: true,
+          edges: { left: true, right: true, bottom: true, top: true }
+        },
+        rotatable: true,
+        scalable: true,
+        withDraggable: function(draggable) {
+          draggable.on('move', function() {
+            model.resizable.moves++;
+          });
+        },
+        withResizable: function(resizable) {
+          resizable.on('move', function() {
+            model.resizable.resizes++;
+          });
+        },
+        withGesturable: function(gesturable) {
+          gesturable.on('move', function() {
+            model.resizable.gestures++;
+          });
+        }
+      },
+      h('.turquoise', 'Resizable')
+    ),
     h('pre', JSON.stringify(model, null, 2))
   );
 }
 
 var model = {
-  animal:    { x: 0,  y: 0, scale: 1.1, rotation: 1 },
-  vegetable: { x: 30, y: 0, scale: 1.0, rotation: 0 },
-  mineral:   { x: 60, y: 0, scale: 1.1, rotation: -3, moves: 0, gestures: 0 },
+  animal:     { x: 0,  y: 0, scale: 1.1, rotation: 1 },
+  vegetable:  { x: 30, y: 0, scale: 1.0, rotation: 0 },
+  mineral:    { x: 60, y: 0, scale: 1.1, rotation: -3, moves: 0, gestures: 0 },
   restricted: { x: 30, y: 0, scale: 1.0, rotation: 0 },
+  resizable:  { x: 0, y: 0, moves: 0, gestures: 0, resizes: 0 }
 }
 
 hyperdom.append(document.body, render, model);
