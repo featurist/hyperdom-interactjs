@@ -1,6 +1,6 @@
 {
   "name": "hyperdom-interactjs",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "multi-touch gestures for hyperdom using interact.js",
   "main": "index.js",
   "scripts": {
