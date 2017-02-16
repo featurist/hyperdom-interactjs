@@ -63,7 +63,6 @@ function render(model) {
         binding: [model, 'resizable'],
         draggable: { inertia: true },
         resizable: {
-          preserveAspectRatio: true,
           edges: { left: true, right: true, bottom: true, top: true }
         },
         rotatable: true,

@@ -105,8 +105,28 @@ function makeResizeListener(binding) {
 
 function resizeListener(event, binding) {
   var target = event.target;
-  var x = (parseFloat(target.getAttribute('data-x')) || 0);
-  var y = (parseFloat(target.getAttribute('data-y')) || 0);
+  var x, y;
+  var transform = target.style.transform || target.style.webkitTransform;
+  var existing = transform.match(translateReg);
+  if (existing) {
+    x = Number(existing[1]);
+    y = Number(existing[2]);
+  } else {
+    x = y = 0;
+  }
+  var newTranslate = 'translate(' + x + 'px, ' + y + 'px)';
+  if (existing) {
+    target.style.webkitTransform = target.style.transform = transform.replace(translateReg, newTranslate);
+  } else {
+    target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
+  }
+
+  if (binding) {
+    var transform = binding.get() || {};
+    transform.x = x;
+    transform.y = y;
+    binding.set(transform);
+  }
 
   // update the element's style
   target.style.width  = event.rect.width + 'px';
