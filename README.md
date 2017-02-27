@@ -1,6 +1,6 @@
 # hyperdom-interactjs
 
-Multi-touch gestures for hyperdom.
+Multi-touch gestures for [hyperdom](https://github.com/featurist/hyperdom).
 
 [Demo](http://featurist.co.uk/hyperdom-interactjs)
 
@@ -9,7 +9,10 @@ Multi-touch gestures for hyperdom.
 ```JavaScript
 function render(model) {
   return h('.page',
-    interact({ binding: [model, 'animal'], draggable: true },
+    interact({
+        binding: [model, 'animal'],
+        draggable: true
+      },
       h('.red', 'Animal')
     ),
     interact({
@@ -45,13 +48,30 @@ function render(model) {
         event.target.style.backgroundColor = 'purple';
       }
     }, h('.bucket', 'Bucket')),
+    h('.object-container',
+      interact({
+          binding: [model, 'restricted'],
+          draggable: {
+            restrict: {
+              restriction: 'parent',
+              endOnly: true,
+              elementRect: { top: 0, left: 0, bottom: 1, right: 1 }
+            }
+          },
+          rotatable: true,
+          scalable: true
+        },
+        h('.pink', 'Restricted')
+      )
+    ),
     h('pre', JSON.stringify(model, null, 2))
   );
 }
 
 var model = {
-  animal:    { x: 0,  y: 0, scale: 1.1, rotation: 1  },
-  vegetable: { x: 30, y: 0, scale: 1.0, rotation: 0  },
-  mineral:   { x: 60, y: 0, scale: 1.1, rotation: -3, moves: 0, gestures: 0 }
+  animal:     { x: 0,  y: 0, scale: 1.1, rotation: 1 },
+  vegetable:  { x: 30, y: 0, scale: 1.0, rotation: 0 },
+  mineral:    { x: 60, y: 0, scale: 1.1, rotation: -3, moves: 0, gestures: 0 },
+  restricted: { x: 30, y: 0, scale: 1.0, rotation: 0 }
 }
 ```
