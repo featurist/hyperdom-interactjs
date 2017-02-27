@@ -23,15 +23,6 @@ function hyperdomInteractJs(options, vnode) {
             options.withDraggable(draggable);
           }
         }
-        if (options.resizable) {
-          var opts = (options.resizable === true) ?
-            {} : options.resizable || {};
-          opts.onmove = hyperdom.html.refreshify(makeResizeListener(binding));
-          var resizable = interact(element).resizable(opts);
-          if (options.withResizable) {
-            options.withResizable(resizable);
-          }
-        }
         if (options.rotatable || options.scalable) {
           var gesturable = interact(element).gesturable({
             onmove: hyperdom.html.refreshify(makeGestureMoveListener(options, binding))
@@ -64,7 +55,7 @@ function writeTransform(t) {
 }
 
 function makeDragMoveListener(binding) {
-  return function(event) {
+  return function(event) {  
     dragMoveListener(event, binding);
   }
 }
@@ -88,59 +79,13 @@ function dragMoveListener(event, binding) {
   } else {
     target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
   }
-
+  
   if (binding) {
     var transform = binding.get() || {};
     transform.x = x;
     transform.y = y;
     binding.set(transform);
   }
-}
-
-function makeResizeListener(binding) {
-  return function(event) {
-    resizeListener(event, binding);
-  }
-}
-
-function resizeListener(event, binding) {
-  var target = event.target;
-  var x, y;
-  var transform = target.style.transform || target.style.webkitTransform;
-  var existing = transform.match(translateReg);
-  if (existing) {
-    x = Number(existing[1]);
-    y = Number(existing[2]);
-  } else {
-    x = y = 0;
-  }
-  var newTranslate = 'translate(' + x + 'px, ' + y + 'px)';
-  if (existing) {
-    target.style.webkitTransform = target.style.transform = transform.replace(translateReg, newTranslate);
-  } else {
-    target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
-  }
-
-  if (binding) {
-    var transform = binding.get() || {};
-    transform.x = x;
-    transform.y = y;
-    binding.set(transform);
-  }
-
-  // update the element's style
-  target.style.width  = event.rect.width + 'px';
-  target.style.height = event.rect.height + 'px';
-
-  // translate when resizing from top or left edges
-  x += event.deltaRect.left;
-  y += event.deltaRect.top;
-
-  target.style.webkitTransform = target.style.transform =
-      'translate(' + x + 'px,' + y + 'px)';
-
-  target.setAttribute('data-x', x);
-  target.setAttribute('data-y', y);
 }
 
 function makeGestureMoveListener(options, binding) {
@@ -195,7 +140,7 @@ function scaleMoveListener(event, binding, refresh) {
   } else {
     target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
   }
-
+  
   if (binding) {
     var transform = binding.get() || {};
     transform.scale = scale;

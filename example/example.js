@@ -4,10 +4,7 @@ var h = hyperdom.html;
 
 function render(model) {
   return h('.page',
-    interact({
-        binding: [model, 'animal'],
-        draggable: true
-      },
+    interact({ binding: [model, 'animal'], draggable: true },
       h('.red', 'Animal')
     ),
     interact({
@@ -43,58 +40,14 @@ function render(model) {
         event.target.style.backgroundColor = 'purple';
       }
     }, h('.bucket', 'Bucket')),
-    h('.object-container',
-      interact({
-          binding: [model, 'restricted'],
-          draggable: {
-            restrict: {
-              restriction: 'parent',
-              endOnly: true,
-              elementRect: { top: 0, left: 0, bottom: 1, right: 1 }
-            }
-          },
-          rotatable: true,
-          scalable: true
-        },
-        h('.pink', 'Restricted')
-      )
-    ),
-    interact({
-        binding: [model, 'resizable'],
-        draggable: { inertia: true },
-        resizable: {
-          edges: { left: true, right: true, bottom: true, top: true }
-        },
-        rotatable: true,
-        scalable: true,
-        withDraggable: function(draggable) {
-          draggable.on('move', function() {
-            model.resizable.moves++;
-          });
-        },
-        withResizable: function(resizable) {
-          resizable.on('move', function() {
-            model.resizable.resizes++;
-          });
-        },
-        withGesturable: function(gesturable) {
-          gesturable.on('move', function() {
-            model.resizable.gestures++;
-          });
-        }
-      },
-      h('.turquoise', 'Resizable')
-    ),
     h('pre', JSON.stringify(model, null, 2))
   );
 }
 
 var model = {
-  animal:     { x: 0,  y: 0, scale: 1.1, rotation: 1 },
-  vegetable:  { x: 30, y: 0, scale: 1.0, rotation: 0 },
-  mineral:    { x: 60, y: 0, scale: 1.1, rotation: -3, moves: 0, gestures: 0 },
-  restricted: { x: 30, y: 0, scale: 1.0, rotation: 0 },
-  resizable:  { x: 0, y: 0, moves: 0, gestures: 0, resizes: 0 }
+  animal:    { x: 0,  y: 0, scale: 1.1, rotation: 1  },
+  vegetable: { x: 30, y: 0, scale: 1.0, rotation: 0  },
+  mineral:   { x: 60, y: 0, scale: 1.1, rotation: -3, moves: 0, gestures: 0 }
 }
 
 hyperdom.append(document.getElementById('example'), render, model);
