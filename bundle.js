@@ -60,32 +60,6 @@ function render(model) {
         h('.pink', 'Restricted')
       )
     ),
-    interact({
-        binding: [model, 'resizable'],
-        draggable: { inertia: true },
-        resizable: {
-          edges: { left: true, right: true, bottom: true, top: true }
-        },
-        rotatable: true,
-        scalable: true,
-        withDraggable: function(draggable) {
-          draggable.on('move', function() {
-            model.resizable.moves++;
-          });
-        },
-        withResizable: function(resizable) {
-          resizable.on('move', function() {
-            model.resizable.resizes++;
-          });
-        },
-        withGesturable: function(gesturable) {
-          gesturable.on('move', function() {
-            model.resizable.gestures++;
-          });
-        }
-      },
-      h('.turquoise', 'Resizable')
-    ),
     h('pre', JSON.stringify(model, null, 2))
   );
 }
@@ -94,8 +68,7 @@ var model = {
   animal:     { x: 0,  y: 0, scale: 1.1, rotation: 1 },
   vegetable:  { x: 30, y: 0, scale: 1.0, rotation: 0 },
   mineral:    { x: 60, y: 0, scale: 1.1, rotation: -3, moves: 0, gestures: 0 },
-  restricted: { x: 30, y: 0, scale: 1.0, rotation: 0 },
-  resizable:  { x: 0, y: 0, moves: 0, gestures: 0, resizes: 0 }
+  restricted: { x: 30, y: 0, scale: 1.0, rotation: 0 }
 }
 
 hyperdom.append(document.getElementById('example'), render, model);
@@ -124,15 +97,6 @@ function hyperdomInteractJs(options, vnode) {
           var draggable = interact(element).draggable(opts);
           if (options.withDraggable) {
             options.withDraggable(draggable);
-          }
-        }
-        if (options.resizable) {
-          var opts = (options.resizable === true) ?
-            {} : options.resizable || {};
-          opts.onmove = hyperdom.html.refreshify(makeResizeListener(binding));
-          var resizable = interact(element).resizable(opts);
-          if (options.withResizable) {
-            options.withResizable(resizable);
           }
         }
         if (options.rotatable || options.scalable) {
@@ -174,6 +138,11 @@ function makeDragMoveListener(binding) {
 
 function dragMoveListener(event, binding) {
   var target = event.target;
+  var scaledContainer = document.getElementsByClassName('js-interact-scaled-container')[0];
+  if (scaledContainer) {
+    var existingScale = scaledContainer.style.transform.match(scaleReg);
+    var scaleValue = Number(existingScale[1]);
+  }
   var x, y;
   var transform = target.style.transform || target.style.webkitTransform;
   var existing = transform.match(translateReg);
@@ -183,39 +152,12 @@ function dragMoveListener(event, binding) {
   } else {
     x = y = 0;
   }
-  x += event.dx;
-  y += event.dy;
-  var newTranslate = 'translate(' + x + 'px, ' + y + 'px)';
-  if (existing) {
-    target.style.webkitTransform = target.style.transform = transform.replace(translateReg, newTranslate);
+  if (scaledContainer) {
+    x += event.dx / scaleValue;
+    y += event.dy / scaleValue;
   } else {
-    target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
-  }
-
-  if (binding) {
-    var transform = binding.get() || {};
-    transform.x = x;
-    transform.y = y;
-    binding.set(transform);
-  }
-}
-
-function makeResizeListener(binding) {
-  return function(event) {
-    resizeListener(event, binding);
-  }
-}
-
-function resizeListener(event, binding) {
-  var target = event.target;
-  var x, y;
-  var transform = target.style.transform || target.style.webkitTransform;
-  var existing = transform.match(translateReg);
-  if (existing) {
-    x = Number(existing[1]);
-    y = Number(existing[2]);
-  } else {
-    x = y = 0;
+    x += event.dx;
+    y += event.dy;
   }
   var newTranslate = 'translate(' + x + 'px, ' + y + 'px)';
   if (existing) {
@@ -230,21 +172,6 @@ function resizeListener(event, binding) {
     transform.y = y;
     binding.set(transform);
   }
-
-  // update the element's style
-  target.style.width  = event.rect.width + 'px';
-  target.style.height = event.rect.height + 'px';
-
-  // translate when resizing from top or left edges
-  x += event.deltaRect.left;
-  y += event.deltaRect.top;
-
-  target.style.webkitTransform = target.style.transform =
-      'translate(' + x + 'px,' + y + 'px)';
-
-  target.setAttribute('data-x', x);
-  target.setAttribute('data-y', y);
-  target.textContent = Math.round(event.rect.width) + '×' + Math.round(event.rect.height);
 }
 
 function makeGestureMoveListener(options, binding) {
