@@ -55,13 +55,18 @@ function writeTransform(t) {
 }
 
 function makeDragMoveListener(binding) {
-  return function(event) {  
+  return function(event) {
     dragMoveListener(event, binding);
   }
 }
 
 function dragMoveListener(event, binding) {
   var target = event.target;
+  var scaledContainer = document.getElementsByClassName('js-interact-scaled-container')[0];
+  if (scaledContainer) {
+    var existingScale = scaledContainer.style.transform.match(scaleReg);
+    var scaleValue = Number(existingScale[1]);
+  }
   var x, y;
   var transform = target.style.transform || target.style.webkitTransform;
   var existing = transform.match(translateReg);
@@ -71,15 +76,20 @@ function dragMoveListener(event, binding) {
   } else {
     x = y = 0;
   }
-  x += event.dx;
-  y += event.dy;
+  if (scaledContainer) {
+    x += event.dx / scaleValue;
+    y += event.dy / scaleValue;
+  } else {
+    x += event.dx;
+    y += event.dy;
+  }
   var newTranslate = 'translate(' + x + 'px, ' + y + 'px)';
   if (existing) {
     target.style.webkitTransform = target.style.transform = transform.replace(translateReg, newTranslate);
   } else {
     target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
   }
-  
+
   if (binding) {
     var transform = binding.get() || {};
     transform.x = x;
@@ -140,7 +150,7 @@ function scaleMoveListener(event, binding, refresh) {
   } else {
     target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
   }
-  
+
   if (binding) {
     var transform = binding.get() || {};
     transform.scale = scale;
