@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "example": "browserify example/example.js > example/bundle.js",
-    "watch": "watchify example/example.js -o example/bundle.js"
+    "watch": "watchify example/example.js -o example/bundle.js -v"
   },
   "keywords": [
     "hyperdom",
@@ -14,6 +14,7 @@
     "touch"
   ],
   "dependencies": {
+    "element-closest": "2.0.2",
     "interact.js": "1.2.8"
   },
   "peerDependencies": {
@@ -21,8 +22,9 @@
   },
   "devDependencies": {
     "browserify": "13.0.1",
-    "watchify": "3.7.0",
-    "hyperdom": "0.2.0"
+    "eslint": "3.16.1",
+    "hyperdom": "0.2.0",
+    "watchify": "3.7.0"
   },
   "author": "Josh Chisholm <joshuachisholm@gmail.com>",
   "contributors": [],
