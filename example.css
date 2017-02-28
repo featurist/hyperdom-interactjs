@@ -14,7 +14,7 @@ pre, textarea {
   overflow: scroll;
   margin-bottom: 20px;
 }
-.red, .green, .blue, .pink, .bucket {
+.red, .green, .blue, .pink, .turquoise, .bucket {
   transform-origin: 50% 50%;
   -webkit-transform-origin: 50% 50%;
   width: 90px;
@@ -41,6 +41,11 @@ pre, textarea {
 .pink {
   background-color: #E437ED;
 }
+.turquoise {
+  width: 150px;
+  height: 150px;
+  background-color: #40E0D0;
+}
 .bucket {
   width:100px;
   height:100px;
@@ -48,10 +53,15 @@ pre, textarea {
   margin-left: 100px;
   line-height: 100px;
 }
-.object-container {
+.object-container,
+.scaled-container {
   border: 3px solid red;
   clear: left;
   width: 300px;
   height: 200px;
   margin-bottom: 20px;
+}
+.scaled-container {
+  margin-left: 90px;
+  margin-top: 90px
 }

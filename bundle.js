@@ -54,11 +54,48 @@ function render(model) {
               elementRect: { top: 0, left: 0, bottom: 1, right: 1 }
             }
           },
+          resizable: {
+            edges: { left: true, right: true, bottom: true, top: true }
+          },
           rotatable: true,
           scalable: true
         },
         h('.pink', 'Restricted')
       )
+    ),
+    h('.scaled-container.js-interact-scaled-container', {
+      style: { transform: 'scale(1.6)' }
+    },
+      interact({
+          binding: [model, 'scaledContainer'],
+          draggable: {
+            restrict: {
+              restriction: 'parent',
+              endOnly: true,
+              elementRect: { top: 0, left: 0, bottom: 1, right: 1 }
+            }
+          },
+          resizable: {
+            preserveAspectRatio: true,
+            edges: { left: true, right: true, bottom: true, top: true }
+          },
+          rotatable: true,
+          scalable: true
+        },
+        h('.pink', 'Scaled')
+      )
+    ),
+    interact({
+        binding: [model, 'resizable'],
+        draggable: true,
+        resizable: {
+          preserveAspectRatio: true,
+          edges: { left: true, right: true, bottom: true, top: true }
+        },
+        rotatable: true,
+        scalable: true
+      },
+      h('.turquoise', 'Resizable')
     ),
     h('pre', JSON.stringify(model, null, 2))
   );
@@ -68,14 +105,17 @@ var model = {
   animal:     { x: 0,  y: 0, scale: 1.1, rotation: 1 },
   vegetable:  { x: 30, y: 0, scale: 1.0, rotation: 0 },
   mineral:    { x: 60, y: 0, scale: 1.1, rotation: -3, moves: 0, gestures: 0 },
-  restricted: { x: 30, y: 0, scale: 1.0, rotation: 0 }
+  restricted: { x: 30, y: 0, scale: 1.0, rotation: 0 },
+  scaledContainer:  { x: 30, y: 0, scale: 1.2, rotation: 0 },
+  resizable:  { x: 600, y: -400, scale: 2.0, rotation: 0 }
 }
 
 hyperdom.append(document.getElementById('example'), render, model);
 
-},{"../":2,"hyperdom":9}],2:[function(require,module,exports){
+},{"../":2,"hyperdom":10}],2:[function(require,module,exports){
 var hyperdom = require('hyperdom');
 var interact = require('interact.js');
+var closest = require('element-closest');
 
 var translateReg = /translate\((-?[\d\.]+)px,\s*(-?[\d\.]+)px\)/i;
 var rotateReg = /rotate\((-?[\d\.]+)deg\)/i;
@@ -89,14 +129,29 @@ function hyperdomInteractJs(options, vnode) {
       onadd: function (element) {
         if (transform) {
           element.style.transform = writeTransform(transform);
+          if (transform.width) {
+            element.style.width = transform.width;
+          }
+          if (transform.height) {
+            element.style.height = transform.height;
+          }
         }
         if (options.draggable) {
-          var opts = (options.draggable === true) ?
+          var dragOpts = (options.draggable === true) ?
             {} : options.draggable || {};
-          opts.onmove = hyperdom.html.refreshify(makeDragMoveListener(binding));
-          var draggable = interact(element).draggable(opts);
+          dragOpts.onmove = hyperdom.html.refreshify(makeDragMoveListener(binding));
+          var draggable = interact(element).draggable(dragOpts);
           if (options.withDraggable) {
             options.withDraggable(draggable);
+          }
+        }
+        if (options.resizable) {
+          var resizeOpts = (options.resizable === true) ?
+            {} : options.resizable || {};
+          resizeOpts.onmove = hyperdom.html.refreshify(makeResizeListener(binding));
+          var resizable = interact(element).resizable(resizeOpts);
+          if (options.withResizable) {
+            options.withResizable(resizable);
           }
         }
         if (options.rotatable || options.scalable) {
@@ -127,7 +182,7 @@ hyperdomInteractJs.dropzone = function(options, vnode) {
 hyperdomInteractJs.createSnapGrid = interact.createSnapGrid;
 
 function writeTransform(t) {
-  return "translate(" + t.x + "px," + t.y + "px) scale(" + t.scale + ") rotate(" + t.rotation + "deg)";
+  return 'translate(' + t.x + 'px,' + t.y + 'px) scale(' + t.scale + ') rotate(' + t.rotation + 'deg)';
 }
 
 function makeDragMoveListener(binding) {
@@ -138,39 +193,82 @@ function makeDragMoveListener(binding) {
 
 function dragMoveListener(event, binding) {
   var target = event.target;
-  var scaledContainer = document.getElementsByClassName('js-interact-scaled-container')[0];
-  if (scaledContainer) {
-    var existingScale = scaledContainer.style.transform.match(scaleReg);
-    var scaleValue = Number(existingScale[1]);
-  }
   var x, y;
   var transform = target.style.transform || target.style.webkitTransform;
-  var existing = transform.match(translateReg);
-  if (existing) {
-    x = Number(existing[1]);
-    y = Number(existing[2]);
+  var existingTranslate = transform.match(translateReg);
+  if (existingTranslate) {
+    x = Number(existingTranslate[1]);
+    y = Number(existingTranslate[2]);
   } else {
     x = y = 0;
   }
+
+  // Account for scaled container when dragging
+  var scaledContainer = target.closest('.js-interact-scaled-container');
   if (scaledContainer) {
+    var existingScale = scaledContainer.style.transform.match(scaleReg);
+    var scaleValue = Number(existingScale[1]);
     x += event.dx / scaleValue;
     y += event.dy / scaleValue;
   } else {
     x += event.dx;
     y += event.dy;
   }
+
   var newTranslate = 'translate(' + x + 'px, ' + y + 'px)';
-  if (existing) {
+  if (existingTranslate) {
     target.style.webkitTransform = target.style.transform = transform.replace(translateReg, newTranslate);
   } else {
     target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
   }
 
   if (binding) {
-    var transform = binding.get() || {};
-    transform.x = x;
-    transform.y = y;
-    binding.set(transform);
+    var bindingTransform = binding.get() || {};
+    bindingTransform.x = x;
+    bindingTransform.y = y;
+    binding.set(bindingTransform);
+  }
+}
+
+function makeResizeListener(binding) {
+  return function(event) {
+    resizeListener(event, binding);
+  }
+}
+
+function resizeListener(event, binding) {
+  var target = event.target;
+  var scaledContainer = target.closest('.js-interact-scaled-container');
+  var existingObjectTransform = target.style.transform || target.style.webkitTransform;
+  var existingObjectScale = existingObjectTransform.match(scaleReg);
+
+  if (existingObjectScale) {
+    var existingObjectScaleValue = Number(existingObjectScale[1]);
+  }
+
+  if (scaledContainer) {
+    var containerScale = scaledContainer.style.transform.match(scaleReg);
+    var containerScaleValue = Number(containerScale[1]);
+    if (existingObjectScale) {
+      target.style.width  = (event.rect.width / existingObjectScaleValue) / containerScaleValue + 'px';
+      target.style.height = (event.rect.height / existingObjectScaleValue) / containerScaleValue + 'px';
+    } else {
+      target.style.width  = event.rect.width / containerScaleValue + 'px';
+      target.style.height = event.rect.height / containerScaleValue + 'px';
+    }
+  } else if (existingObjectScale) {
+    target.style.width  = event.rect.width / existingObjectScaleValue + 'px';
+    target.style.height = event.rect.height / existingObjectScaleValue + 'px';
+  } else {
+    target.style.width  = event.rect.width + 'px';
+    target.style.height = event.rect.height + 'px';
+  }
+
+  if (binding) {
+    var bindingTransform = binding.get() || {};
+    bindingTransform.width = event.rect.width;
+    bindingTransform.height = event.rect.height;
+    binding.set(bindingTransform);
   }
 }
 
@@ -189,23 +287,24 @@ function rotateMoveListener(event, binding, refresh) {
   var target = event.target;
   var rotation;
   var transform = target.style.transform || target.style.webkitTransform;
-  var existing = transform.match(rotateReg);
-  if (existing) {
-    rotation = Number(existing[1]);
+  var existingRotate = transform.match(rotateReg);
+  if (existingRotate) {
+    rotation = Number(existingRotate[1]);
   } else {
     rotation = 0;
   }
   rotation += event.da;
-  var newTranslate = 'rotate(' + rotation + 'deg)';
-  if (existing) {
-    target.style.webkitTransform = target.style.transform = transform.replace(rotateReg, newTranslate);
+  var newRotate = 'rotate(' + rotation + 'deg)';
+  if (existingRotate) {
+    target.style.webkitTransform = target.style.transform = transform.replace(rotateReg, newRotate);
   } else {
-    target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
+    target.style.webkitTransform = target.style.transform = transform + ' ' + newRotate;
   }
 
   if (binding) {
-    var transform = binding.get() || {};
-    transform.rotation = rotation;
+    var bindingTransform = binding.get() || {};
+    bindingTransform.rotation = rotation;
+    binding.set(bindingTransform);
   }
 }
 
@@ -213,27 +312,28 @@ function scaleMoveListener(event, binding, refresh) {
   var target = event.target;
   var scale;
   var transform = target.style.transform || target.style.webkitTransform;
-  var existing = transform.match(scaleReg);
-  if (existing) {
-    scale = Number(existing[1]);
+  var existingScale = transform.match(scaleReg);
+  if (existingScale) {
+    scale = Number(existingScale[1]);
   } else {
     scale = 1;
   }
   scale += event.ds;
-  var newTranslate = 'scale(' + scale + ')';
-  if (existing) {
-    target.style.webkitTransform = target.style.transform = transform.replace(scaleReg, newTranslate);
+  var newScale = 'scale(' + scale + ')';
+  if (existingScale) {
+    target.style.webkitTransform = target.style.transform = transform.replace(scaleReg, newScale);
   } else {
-    target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
+    target.style.webkitTransform = target.style.transform = transform + ' ' + newScale;
   }
 
   if (binding) {
-    var transform = binding.get() || {};
-    transform.scale = scale;
+    var bindingTransform = binding.get() || {};
+    bindingTransform.scale = scale;
+    binding.set(bindingTransform);
   }
 }
 
-},{"hyperdom":9,"interact.js":22}],3:[function(require,module,exports){
+},{"element-closest":5,"hyperdom":10,"interact.js":23}],3:[function(require,module,exports){
 
 },{}],4:[function(require,module,exports){
 /*!
@@ -344,6 +444,41 @@ module.exports = (function split(undef) {
 })();
 
 },{}],5:[function(require,module,exports){
+// element-closest | CC0-1.0 | github.com/jonathantneal/closest
+
+(function (ElementProto) {
+	if (typeof ElementProto.matches !== 'function') {
+		ElementProto.matches = ElementProto.msMatchesSelector || ElementProto.mozMatchesSelector || ElementProto.webkitMatchesSelector || function matches(selector) {
+			var element = this;
+			var elements = (element.document || element.ownerDocument).querySelectorAll(selector);
+			var index = 0;
+
+			while (elements[index] && elements[index] !== element) {
+				++index;
+			}
+
+			return Boolean(elements[index]);
+		};
+	}
+
+	if (typeof ElementProto.closest !== 'function') {
+		ElementProto.closest = function closest(selector) {
+			var element = this;
+
+			while (element && element.nodeType === 1) {
+				if (element.matches(selector)) {
+					return element;
+				}
+
+				element = element.parentNode;
+			}
+
+			return null;
+		};
+	}
+})(window.Element.prototype);
+
+},{}],6:[function(require,module,exports){
 (function (global){
 var topLevel = typeof global !== 'undefined' ? global :
     typeof window !== 'undefined' ? window : {}
@@ -362,7 +497,7 @@ if (typeof document !== 'undefined') {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"min-document":3}],6:[function(require,module,exports){
+},{"min-document":3}],7:[function(require,module,exports){
 var VText = require("virtual-dom/vnode/vtext.js")
 var domComponent = require('./domComponent');
 var hyperdom = require('.');
@@ -502,7 +637,7 @@ module.exports = function (state, vdom) {
 
 module.exports.ComponentWidget = ComponentWidget;
 
-},{".":9,"./deprecations":7,"./domComponent":8,"virtual-dom/vnode/vtext.js":44}],7:[function(require,module,exports){
+},{".":10,"./deprecations":8,"./domComponent":9,"virtual-dom/vnode/vtext.js":45}],8:[function(require,module,exports){
 function deprecationWarning() {
   var warningIssued = false;
 
@@ -524,7 +659,7 @@ module.exports = {
   norefresh: deprecationWarning()
 };
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 var createElement = require('virtual-dom/create-element');
 var diff = require('virtual-dom/diff');
 var patch = require('virtual-dom/patch');
@@ -583,7 +718,7 @@ function domComponent(options) {
 
 module.exports = domComponent;
 
-},{"./isVdom":10,"./toVdom":18,"virtual-dom/create-element":24,"virtual-dom/diff":25,"virtual-dom/patch":26}],9:[function(require,module,exports){
+},{"./isVdom":11,"./toVdom":19,"virtual-dom/create-element":25,"virtual-dom/diff":26,"virtual-dom/patch":27}],10:[function(require,module,exports){
 if (typeof window === 'object') {
   console.log('\n\ncreated with \uD83D\uDE80 using https://github.com/featurist/hyperdom\n\n\n');
 }
@@ -616,7 +751,7 @@ exports.currentRender = function () {
   return exports._currentRender;
 };
 
-},{"./component":6,"./deprecations":7,"./rendering":14,"./windowEvents":21}],10:[function(require,module,exports){
+},{"./component":7,"./deprecations":8,"./rendering":15,"./windowEvents":22}],11:[function(require,module,exports){
 var virtualDomVersion = require("virtual-dom/vnode/version")
 
 module.exports = function(x) {
@@ -628,7 +763,7 @@ module.exports = function(x) {
   }
 };
 
-},{"virtual-dom/vnode/version":41}],11:[function(require,module,exports){
+},{"virtual-dom/vnode/version":42}],12:[function(require,module,exports){
 module.exports = function (model, property) {
   var hyperdomMeta = model._hyperdomMeta;
 
@@ -650,7 +785,7 @@ module.exports = function (model, property) {
   }
 };
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 var hyperdomMeta = require('./meta');
 var runRender = require('./runRender');
 var hyperdom = require('.');
@@ -786,7 +921,7 @@ Mount.prototype.remove = function () {
 
 module.exports = Mount;
 
-},{".":9,"./meta":11,"./runRender":15,"./set":16}],13:[function(require,module,exports){
+},{".":10,"./meta":12,"./runRender":16,"./set":17}],14:[function(require,module,exports){
 var simplePromise = require('./simplePromise');
 
 function Render(mount) {
@@ -797,7 +932,7 @@ function Render(mount) {
 
 module.exports = Render;
 
-},{"./simplePromise":17}],14:[function(require,module,exports){
+},{"./simplePromise":18}],15:[function(require,module,exports){
 (function (global){
 var h = require('./vhtml');
 var domComponent = require('./domComponent');
@@ -1446,7 +1581,7 @@ function generateClassName(obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{".":9,"./deprecations":7,"./domComponent":8,"./meta":11,"./mount":12,"./runRender":15,"./toVdom":18,"./vhtml":19,"./viewModel":20,"virtual-dom/virtual-hyperscript/parse-tag":34}],15:[function(require,module,exports){
+},{".":10,"./deprecations":8,"./domComponent":9,"./meta":12,"./mount":13,"./runRender":16,"./toVdom":19,"./vhtml":20,"./viewModel":21,"virtual-dom/virtual-hyperscript/parse-tag":35}],16:[function(require,module,exports){
 var hyperdom = require('.');
 var Render = require('./render');
 var rendering = require('./rendering');
@@ -1474,7 +1609,7 @@ module.exports = function(mount, fn) {
   }
 };
 
-},{".":9,"./render":13,"./rendering":14}],16:[function(require,module,exports){
+},{".":10,"./render":14,"./rendering":15}],17:[function(require,module,exports){
 if (typeof Set === 'function') {
   module.exports = Set;
 } else {
@@ -1502,7 +1637,7 @@ if (typeof Set === 'function') {
   };
 }
 
-},{}],17:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 function SimplePromise () {
   this.listeners = [];
 }
@@ -1532,7 +1667,7 @@ module.exports = function () {
   return new SimplePromise();
 };
 
-},{}],18:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 var vtext = require("virtual-dom/vnode/vtext.js")
 var rendering = require('./rendering');
 var isVdom = require('./isVdom');
@@ -1573,7 +1708,7 @@ module.exports.recursive = function (child) {
   return children;
 };
 
-},{"./isVdom":10,"./rendering":14,"virtual-dom/vnode/vtext.js":44}],19:[function(require,module,exports){
+},{"./isVdom":11,"./rendering":15,"virtual-dom/vnode/vtext.js":45}],20:[function(require,module,exports){
 'use strict';
 
 var VNode = require('virtual-dom/vnode/vnode.js');
@@ -1611,7 +1746,7 @@ function h(tagName, props, children) {
   return new VNode(tag, props, children, key, namespace);
 }
 
-},{"virtual-dom/virtual-hyperscript/hooks/soft-set-hook.js":33,"virtual-dom/vnode/is-vhook":37,"virtual-dom/vnode/vnode.js":42}],20:[function(require,module,exports){
+},{"virtual-dom/virtual-hyperscript/hooks/soft-set-hook.js":34,"virtual-dom/vnode/is-vhook":38,"virtual-dom/vnode/vnode.js":43}],21:[function(require,module,exports){
 var domComponent = require('./domComponent');
 var hyperdomMeta = require('./meta');
 var hyperdom = require('.');
@@ -1700,7 +1835,7 @@ ViewModel.prototype.destroy = function (element) {
 
 module.exports = ViewModel;
 
-},{".":9,"./domComponent":8,"./meta":11}],21:[function(require,module,exports){
+},{".":10,"./domComponent":9,"./meta":12}],22:[function(require,module,exports){
 var domComponent = require('./domComponent');
 var rendering = require('./rendering');
 var VText = require("virtual-dom/vnode/vtext.js")
@@ -1780,7 +1915,7 @@ module.exports = function (attributes) {
   return new WindowWidget(attributes);
 };
 
-},{"./domComponent":8,"./rendering":14,"virtual-dom/vnode/vtext.js":44}],22:[function(require,module,exports){
+},{"./domComponent":9,"./rendering":15,"virtual-dom/vnode/vtext.js":45}],23:[function(require,module,exports){
 /**
  * interact.js v1.2.8
  *
@@ -7759,29 +7894,29 @@ module.exports = function (attributes) {
 
 } (typeof window === 'undefined'? undefined : window));
 
-},{}],23:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 "use strict";
 
 module.exports = function isObject(x) {
 	return typeof x === "object" && x !== null;
 };
 
-},{}],24:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 var createElement = require("./vdom/create-element.js")
 
 module.exports = createElement
 
-},{"./vdom/create-element.js":28}],25:[function(require,module,exports){
+},{"./vdom/create-element.js":29}],26:[function(require,module,exports){
 var diff = require("./vtree/diff.js")
 
 module.exports = diff
 
-},{"./vtree/diff.js":46}],26:[function(require,module,exports){
+},{"./vtree/diff.js":47}],27:[function(require,module,exports){
 var patch = require("./vdom/patch.js")
 
 module.exports = patch
 
-},{"./vdom/patch.js":31}],27:[function(require,module,exports){
+},{"./vdom/patch.js":32}],28:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook.js")
 
@@ -7880,7 +8015,7 @@ function getPrototype(value) {
     }
 }
 
-},{"../vnode/is-vhook.js":37,"is-object":23}],28:[function(require,module,exports){
+},{"../vnode/is-vhook.js":38,"is-object":24}],29:[function(require,module,exports){
 var document = require("global/document")
 
 var applyProperties = require("./apply-properties")
@@ -7928,7 +8063,7 @@ function createElement(vnode, opts) {
     return node
 }
 
-},{"../vnode/handle-thunk.js":35,"../vnode/is-vnode.js":38,"../vnode/is-vtext.js":39,"../vnode/is-widget.js":40,"./apply-properties":27,"global/document":5}],29:[function(require,module,exports){
+},{"../vnode/handle-thunk.js":36,"../vnode/is-vnode.js":39,"../vnode/is-vtext.js":40,"../vnode/is-widget.js":41,"./apply-properties":28,"global/document":6}],30:[function(require,module,exports){
 // Maps a virtual DOM tree onto a real DOM tree in an efficient manner.
 // We don't want to read all of the DOM nodes in the tree so we use
 // the in-order tree indexing to eliminate recursion down certain branches.
@@ -8015,7 +8150,7 @@ function ascending(a, b) {
     return a > b ? 1 : -1
 }
 
-},{}],30:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 var applyProperties = require("./apply-properties")
 
 var isWidget = require("../vnode/is-widget.js")
@@ -8168,7 +8303,7 @@ function replaceRoot(oldRoot, newRoot) {
     return newRoot;
 }
 
-},{"../vnode/is-widget.js":40,"../vnode/vpatch.js":43,"./apply-properties":27,"./update-widget":32}],31:[function(require,module,exports){
+},{"../vnode/is-widget.js":41,"../vnode/vpatch.js":44,"./apply-properties":28,"./update-widget":33}],32:[function(require,module,exports){
 var document = require("global/document")
 var isArray = require("x-is-array")
 
@@ -8250,7 +8385,7 @@ function patchIndices(patches) {
     return indices
 }
 
-},{"./create-element":28,"./dom-index":29,"./patch-op":30,"global/document":5,"x-is-array":47}],32:[function(require,module,exports){
+},{"./create-element":29,"./dom-index":30,"./patch-op":31,"global/document":6,"x-is-array":48}],33:[function(require,module,exports){
 var isWidget = require("../vnode/is-widget.js")
 
 module.exports = updateWidget
@@ -8267,7 +8402,7 @@ function updateWidget(a, b) {
     return false
 }
 
-},{"../vnode/is-widget.js":40}],33:[function(require,module,exports){
+},{"../vnode/is-widget.js":41}],34:[function(require,module,exports){
 'use strict';
 
 module.exports = SoftSetHook;
@@ -8286,7 +8421,7 @@ SoftSetHook.prototype.hook = function (node, propertyName) {
     }
 };
 
-},{}],34:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 'use strict';
 
 var split = require('browser-split');
@@ -8342,7 +8477,7 @@ function parseTag(tag, props) {
     return props.namespace ? tagName : tagName.toUpperCase();
 }
 
-},{"browser-split":4}],35:[function(require,module,exports){
+},{"browser-split":4}],36:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -8384,14 +8519,14 @@ function renderThunk(thunk, previous) {
     return renderedThunk
 }
 
-},{"./is-thunk":36,"./is-vnode":38,"./is-vtext":39,"./is-widget":40}],36:[function(require,module,exports){
+},{"./is-thunk":37,"./is-vnode":39,"./is-vtext":40,"./is-widget":41}],37:[function(require,module,exports){
 module.exports = isThunk
 
 function isThunk(t) {
     return t && t.type === "Thunk"
 }
 
-},{}],37:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 module.exports = isHook
 
 function isHook(hook) {
@@ -8400,7 +8535,7 @@ function isHook(hook) {
        typeof hook.unhook === "function" && !hook.hasOwnProperty("unhook"))
 }
 
-},{}],38:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualNode
@@ -8409,7 +8544,7 @@ function isVirtualNode(x) {
     return x && x.type === "VirtualNode" && x.version === version
 }
 
-},{"./version":41}],39:[function(require,module,exports){
+},{"./version":42}],40:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualText
@@ -8418,17 +8553,17 @@ function isVirtualText(x) {
     return x && x.type === "VirtualText" && x.version === version
 }
 
-},{"./version":41}],40:[function(require,module,exports){
+},{"./version":42}],41:[function(require,module,exports){
 module.exports = isWidget
 
 function isWidget(w) {
     return w && w.type === "Widget"
 }
 
-},{}],41:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 module.exports = "2"
 
-},{}],42:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 var version = require("./version")
 var isVNode = require("./is-vnode")
 var isWidget = require("./is-widget")
@@ -8502,7 +8637,7 @@ function VirtualNode(tagName, properties, children, key, namespace) {
 VirtualNode.prototype.version = version
 VirtualNode.prototype.type = "VirtualNode"
 
-},{"./is-thunk":36,"./is-vhook":37,"./is-vnode":38,"./is-widget":40,"./version":41}],43:[function(require,module,exports){
+},{"./is-thunk":37,"./is-vhook":38,"./is-vnode":39,"./is-widget":41,"./version":42}],44:[function(require,module,exports){
 var version = require("./version")
 
 VirtualPatch.NONE = 0
@@ -8526,7 +8661,7 @@ function VirtualPatch(type, vNode, patch) {
 VirtualPatch.prototype.version = version
 VirtualPatch.prototype.type = "VirtualPatch"
 
-},{"./version":41}],44:[function(require,module,exports){
+},{"./version":42}],45:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = VirtualText
@@ -8538,7 +8673,7 @@ function VirtualText(text) {
 VirtualText.prototype.version = version
 VirtualText.prototype.type = "VirtualText"
 
-},{"./version":41}],45:[function(require,module,exports){
+},{"./version":42}],46:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook")
 
@@ -8598,7 +8733,7 @@ function getPrototype(value) {
   }
 }
 
-},{"../vnode/is-vhook":37,"is-object":23}],46:[function(require,module,exports){
+},{"../vnode/is-vhook":38,"is-object":24}],47:[function(require,module,exports){
 var isArray = require("x-is-array")
 
 var VPatch = require("../vnode/vpatch")
@@ -9027,7 +9162,7 @@ function appendPatch(apply, patch) {
     }
 }
 
-},{"../vnode/handle-thunk":35,"../vnode/is-thunk":36,"../vnode/is-vnode":38,"../vnode/is-vtext":39,"../vnode/is-widget":40,"../vnode/vpatch":43,"./diff-props":45,"x-is-array":47}],47:[function(require,module,exports){
+},{"../vnode/handle-thunk":36,"../vnode/is-thunk":37,"../vnode/is-vnode":39,"../vnode/is-vtext":40,"../vnode/is-widget":41,"../vnode/vpatch":44,"./diff-props":46,"x-is-array":48}],48:[function(require,module,exports){
 var nativeIsArray = Array.isArray
 var toString = Object.prototype.toString
 
