@@ -11,14 +11,14 @@ function hyperdomInteractJs(options, vnode) {
   var transform = binding.get();
   return hyperdom.html.component(
     {
-      onadd: function (element) {
+      onadd: function(element) {
         if (transform) {
           element.style.transform = writeTransform(transform);
           if (transform.width) {
-            element.style.width = transform.width;
+            element.style.width = transform.width + 'px';
           }
           if (transform.height) {
-            element.style.height = transform.height;
+            element.style.height = transform.height + 'px';
           }
         }
         if (options.draggable) {
@@ -123,6 +123,7 @@ function makeResizeListener(binding) {
 
 function resizeListener(event, binding) {
   var target = event.target;
+  var targetWidth, targetHeight;
   var scaledContainer = target.closest('.js-interact-scaled-container');
   var existingObjectTransform = target.style.transform || target.style.webkitTransform;
   var existingObjectScale = existingObjectTransform.match(scaleReg);
@@ -135,24 +136,27 @@ function resizeListener(event, binding) {
     var containerScale = scaledContainer.style.transform.match(scaleReg);
     var containerScaleValue = Number(containerScale[1]);
     if (existingObjectScale) {
-      target.style.width  = (event.rect.width / existingObjectScaleValue) / containerScaleValue + 'px';
-      target.style.height = (event.rect.height / existingObjectScaleValue) / containerScaleValue + 'px';
+      targetWidth  = (event.rect.width / existingObjectScaleValue) / containerScaleValue;
+      targetHeight = (event.rect.height / existingObjectScaleValue) / containerScaleValue;
     } else {
-      target.style.width  = event.rect.width / containerScaleValue + 'px';
-      target.style.height = event.rect.height / containerScaleValue + 'px';
+      targetWidth  = event.rect.width / containerScaleValue;
+      targetHeight = event.rect.height / containerScaleValue;
     }
   } else if (existingObjectScale) {
-    target.style.width  = event.rect.width / existingObjectScaleValue + 'px';
-    target.style.height = event.rect.height / existingObjectScaleValue + 'px';
+    targetWidth  = event.rect.width / existingObjectScaleValue;
+    targetHeight = event.rect.height / existingObjectScaleValue;
   } else {
-    target.style.width  = event.rect.width + 'px';
-    target.style.height = event.rect.height + 'px';
+    targetWidth  = event.rect.width;
+    targetHeight = event.rect.height;
   }
+
+  target.style.width = targetWidth + 'px';
+  target.style.height = targetHeight + 'px';
 
   if (binding) {
     var bindingTransform = binding.get() || {};
-    bindingTransform.width = event.rect.width;
-    bindingTransform.height = event.rect.height;
+    bindingTransform.width = targetWidth;
+    bindingTransform.height = targetHeight;
     binding.set(bindingTransform);
   }
 }
