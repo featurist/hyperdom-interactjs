@@ -5,21 +5,21 @@ var h = hyperdom.html;
 
 function render(model) {
   return h('.page',
-    interact({
+    interact('.red', {
         binding: [model, 'animal'],
         draggable: true
       },
-      h('.red', 'Animal')
+      'Animal'
     ),
-    interact({
+    interact('.green', {
         binding: [model, 'vegetable'],
         draggable: {
           snap: { targets: [ interact.createSnapGrid({ x: 20, y: 20 }) ] }
         }
       },
-      h('.green', 'Vegetable')
+      'Vegetable'
     ),
-    interact({
+    interact('.blue', {
         binding: [model, 'mineral'],
         draggable: { inertia: true },
         rotatable: true,
@@ -35,7 +35,7 @@ function render(model) {
           });
         }
       },
-      h('.blue', 'Mineral')
+      'Mineral'
     ),
     interact.dropzone({
       accept: '*',
@@ -45,7 +45,7 @@ function render(model) {
       }
     }, h('.bucket', 'Bucket')),
     h('.object-container',
-      interact({
+      interact('.pink', {
           binding: [model, 'restricted'],
           draggable: {
             restrict: {
@@ -60,13 +60,13 @@ function render(model) {
           rotatable: true,
           scalable: true
         },
-        h('.pink', 'Restricted')
+        'Restricted'
       )
     ),
     h('.scaled-container.js-interact-scaled-container', {
       style: { transform: 'scale(1.6)' }
     },
-      interact({
+      interact('.pink', {
           binding: [model, 'scaledContainer'],
           draggable: {
             restrict: {
@@ -82,10 +82,10 @@ function render(model) {
           rotatable: true,
           scalable: true
         },
-        h('.pink', 'Scaled')
+        'Scaled'
       )
     ),
-    interact({
+    interact('.turquoise', {
         binding: [model, 'resizable'],
         draggable: true,
         resizable: {
@@ -95,7 +95,7 @@ function render(model) {
         rotatable: true,
         scalable: true
       },
-      h('.turquoise', 'Resizable')
+      'Resizable'
     ),
     h('pre', JSON.stringify(model, null, 2))
   );
@@ -116,30 +116,22 @@ hyperdom.append(document.getElementById('example'), render, model);
 var hyperdom = require('hyperdom');
 var interact = require('interact.js');
 var closest = require('element-closest');
-
-var translateReg = /translate\((-?[\d\.]+)px,\s*(-?[\d\.]+)px\)/i;
-var rotateReg = /rotate\((-?[\d\.]+)deg\)/i;
+var assign = Object.assign || require('object-assign');
 var scaleReg = /scale\((-?[\d\.]+)\)/i;
+var defaultTransform = { x: 0, y: 0, scale: 1, rotation: 0 };
 
-function hyperdomInteractJs(options, vnode) {
+function hyperdomInteractJs(selector, options, vnode) {
   var binding = hyperdom.html.binding(options.binding);
-  var transform = binding.get();
+  var transform = getTransform(binding);
+  var htmlOptions = options.html || {};
+
   return hyperdom.html.component(
     {
-      onadd: function (element) {
-        if (transform) {
-          element.style.transform = writeTransform(transform);
-          if (transform.width) {
-            element.style.width = transform.width;
-          }
-          if (transform.height) {
-            element.style.height = transform.height;
-          }
-        }
+      onadd: function(element) {
         if (options.draggable) {
           var dragOpts = (options.draggable === true) ?
             {} : options.draggable || {};
-          dragOpts.onmove = hyperdom.html.refreshify(makeDragMoveListener(binding));
+          dragOpts.onmove = hyperdom.html.refreshify(makeDragMoveListener(options, binding));
           var draggable = interact(element).draggable(dragOpts);
           if (options.withDraggable) {
             options.withDraggable(draggable);
@@ -148,7 +140,7 @@ function hyperdomInteractJs(options, vnode) {
         if (options.resizable) {
           var resizeOpts = (options.resizable === true) ?
             {} : options.resizable || {};
-          resizeOpts.onmove = hyperdom.html.refreshify(makeResizeListener(binding));
+          resizeOpts.onmove = hyperdom.html.refreshify(makeResizeListener(options, binding));
           var resizable = interact(element).resizable(resizeOpts);
           if (options.withResizable) {
             options.withResizable(resizable);
@@ -163,12 +155,19 @@ function hyperdomInteractJs(options, vnode) {
           }
         }
       },
-      onupdate: function (element) {
-      }
+      onupdate: function (element) { }
     },
-    vnode
+
+    hyperdom.html(selector, assign({}, htmlOptions, {
+      style: assign({
+        transform: transformStyle(transform),
+        width: transform.width != null ? transform.width + 'px' : undefined,
+        height: transform.height != null ? transform.height + 'px' : undefined
+      }, htmlOptions.style)
+    }), vnode)
   );
 }
+
 module.exports = hyperdomInteractJs;
 
 hyperdomInteractJs.dropzone = function(options, vnode) {
@@ -177,163 +176,115 @@ hyperdomInteractJs.dropzone = function(options, vnode) {
       interact(element).dropzone(options);
     }
   }, vnode);
-}
+};
 
 hyperdomInteractJs.createSnapGrid = interact.createSnapGrid;
 
-function writeTransform(t) {
-  return 'translate(' + t.x + 'px,' + t.y + 'px) scale(' + t.scale + ') rotate(' + t.rotation + 'deg)';
+function getTransform(binding) {
+  return binding.get() || defaultTransform;
 }
 
-function makeDragMoveListener(binding) {
+function transformStyle(t) {
+  return 'translate(' + t.x + 'px,' + t.y  + 'px) scale(' + t.scale + ') rotate(' + t.rotation + 'deg)';
+}
+
+function updateTransform(options, binding, updatedAttrs) {
+  var transform = getTransform(binding);
+  var newTransform = assign({}, transform, updatedAttrs);
+
+  if (options.onbeforechange) {
+    newTransform = options.onbeforechange(newTransform);
+  }
+
+  binding.set(newTransform);
+}
+
+function makeDragMoveListener(options, binding) {
   return function(event) {
-    dragMoveListener(event, binding);
+    dragMoveListener(event, options, binding);
   }
 }
 
-function dragMoveListener(event, binding) {
+function dragMoveListener(event, options, binding) {
   var target = event.target;
-  var x, y;
-  var transform = target.style.transform || target.style.webkitTransform;
-  var existingTranslate = transform.match(translateReg);
-  if (existingTranslate) {
-    x = Number(existingTranslate[1]);
-    y = Number(existingTranslate[2]);
-  } else {
-    x = y = 0;
-  }
+  var transform = getTransform(binding);
+  var newX = transform.x;
+  var newY = transform.y;
 
   // Account for scaled container when dragging
   var scaledContainer = target.closest('.js-interact-scaled-container');
+
   if (scaledContainer) {
     var existingScale = scaledContainer.style.transform.match(scaleReg);
     var scaleValue = Number(existingScale[1]);
-    x += event.dx / scaleValue;
-    y += event.dy / scaleValue;
+    newX += event.dx / scaleValue;
+    newY += event.dy / scaleValue;
   } else {
-    x += event.dx;
-    y += event.dy;
+    newX += event.dx;
+    newY += event.dy;
   }
 
-  var newTranslate = 'translate(' + x + 'px, ' + y + 'px)';
-  if (existingTranslate) {
-    target.style.webkitTransform = target.style.transform = transform.replace(translateReg, newTranslate);
-  } else {
-    target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
-  }
-
-  if (binding) {
-    var bindingTransform = binding.get() || {};
-    bindingTransform.x = x;
-    bindingTransform.y = y;
-    binding.set(bindingTransform);
-  }
+  updateTransform(options, binding, { x: newX, y: newY });
 }
 
-function makeResizeListener(binding) {
+function makeResizeListener(options, binding) {
   return function(event) {
-    resizeListener(event, binding);
+    resizeListener(event, options, binding);
   }
 }
 
-function resizeListener(event, binding) {
+function resizeListener(event, options, binding) {
   var target = event.target;
+  var transform = getTransform(binding);
+  var newWidth, newHeight;
   var scaledContainer = target.closest('.js-interact-scaled-container');
-  var existingObjectTransform = target.style.transform || target.style.webkitTransform;
-  var existingObjectScale = existingObjectTransform.match(scaleReg);
-
-  if (existingObjectScale) {
-    var existingObjectScaleValue = Number(existingObjectScale[1]);
-  }
+  var existingObjectScale = transform.scale;
 
   if (scaledContainer) {
     var containerScale = scaledContainer.style.transform.match(scaleReg);
     var containerScaleValue = Number(containerScale[1]);
-    if (existingObjectScale) {
-      target.style.width  = (event.rect.width / existingObjectScaleValue) / containerScaleValue + 'px';
-      target.style.height = (event.rect.height / existingObjectScaleValue) / containerScaleValue + 'px';
-    } else {
-      target.style.width  = event.rect.width / containerScaleValue + 'px';
-      target.style.height = event.rect.height / containerScaleValue + 'px';
-    }
-  } else if (existingObjectScale) {
-    target.style.width  = event.rect.width / existingObjectScaleValue + 'px';
-    target.style.height = event.rect.height / existingObjectScaleValue + 'px';
+    newWidth  = (event.rect.width / existingObjectScale) / containerScaleValue;
+    newHeight = (event.rect.height / existingObjectScale) / containerScaleValue;
   } else {
-    target.style.width  = event.rect.width + 'px';
-    target.style.height = event.rect.height + 'px';
+    newWidth  = event.rect.width / existingObjectScale;
+    newHeight = event.rect.height / existingObjectScale;
   }
 
-  if (binding) {
-    var bindingTransform = binding.get() || {};
-    bindingTransform.width = event.rect.width;
-    bindingTransform.height = event.rect.height;
-    binding.set(bindingTransform);
-  }
+  updateTransform(options, binding, { width: newWidth, height: newHeight });
 }
 
 function makeGestureMoveListener(options, binding) {
   return function(event) {
     if (options.rotatable) {
-      rotateMoveListener(event, binding);
+      rotateMoveListener(event, options, binding);
     }
     if (options.scalable) {
-      scaleMoveListener(event, binding);
+      scaleMoveListener(event, options, binding);
     }
   }
 }
 
-function rotateMoveListener(event, binding, refresh) {
+function rotateMoveListener(event, options, binding) {
   var target = event.target;
-  var rotation;
-  var transform = target.style.transform || target.style.webkitTransform;
-  var existingRotate = transform.match(rotateReg);
-  if (existingRotate) {
-    rotation = Number(existingRotate[1]);
-  } else {
-    rotation = 0;
-  }
-  rotation += event.da;
-  var newRotate = 'rotate(' + rotation + 'deg)';
-  if (existingRotate) {
-    target.style.webkitTransform = target.style.transform = transform.replace(rotateReg, newRotate);
-  } else {
-    target.style.webkitTransform = target.style.transform = transform + ' ' + newRotate;
-  }
+  var transform = getTransform(binding);
+  var newRotation = transform.rotation;
 
-  if (binding) {
-    var bindingTransform = binding.get() || {};
-    bindingTransform.rotation = rotation;
-    binding.set(bindingTransform);
-  }
+  newRotation += event.da;
+
+  updateTransform(options, binding, { rotation: newRotation });
 }
 
-function scaleMoveListener(event, binding, refresh) {
+function scaleMoveListener(event, options, binding) {
   var target = event.target;
-  var scale;
-  var transform = target.style.transform || target.style.webkitTransform;
-  var existingScale = transform.match(scaleReg);
-  if (existingScale) {
-    scale = Number(existingScale[1]);
-  } else {
-    scale = 1;
-  }
-  scale += event.ds;
-  var newScale = 'scale(' + scale + ')';
-  if (existingScale) {
-    target.style.webkitTransform = target.style.transform = transform.replace(scaleReg, newScale);
-  } else {
-    target.style.webkitTransform = target.style.transform = transform + ' ' + newScale;
-  }
+  var transform = getTransform(binding);
+  var newScale = transform.scale;
 
-  if (binding) {
-    var bindingTransform = binding.get() || {};
-    bindingTransform.scale = scale;
-    binding.set(bindingTransform);
-  }
+  newScale += event.ds;
+
+  updateTransform(options, binding, { scale: newScale });
 }
 
-},{"element-closest":5,"hyperdom":10,"interact.js":23}],3:[function(require,module,exports){
+},{"element-closest":5,"hyperdom":10,"interact.js":23,"object-assign":25}],3:[function(require,module,exports){
 
 },{}],4:[function(require,module,exports){
 /*!
@@ -637,7 +588,7 @@ module.exports = function (state, vdom) {
 
 module.exports.ComponentWidget = ComponentWidget;
 
-},{".":10,"./deprecations":8,"./domComponent":9,"virtual-dom/vnode/vtext.js":45}],8:[function(require,module,exports){
+},{".":10,"./deprecations":8,"./domComponent":9,"virtual-dom/vnode/vtext.js":46}],8:[function(require,module,exports){
 function deprecationWarning() {
   var warningIssued = false;
 
@@ -718,7 +669,7 @@ function domComponent(options) {
 
 module.exports = domComponent;
 
-},{"./isVdom":11,"./toVdom":19,"virtual-dom/create-element":25,"virtual-dom/diff":26,"virtual-dom/patch":27}],10:[function(require,module,exports){
+},{"./isVdom":11,"./toVdom":19,"virtual-dom/create-element":26,"virtual-dom/diff":27,"virtual-dom/patch":28}],10:[function(require,module,exports){
 if (typeof window === 'object') {
   console.log('\n\ncreated with \uD83D\uDE80 using https://github.com/featurist/hyperdom\n\n\n');
 }
@@ -763,7 +714,7 @@ module.exports = function(x) {
   }
 };
 
-},{"virtual-dom/vnode/version":42}],12:[function(require,module,exports){
+},{"virtual-dom/vnode/version":43}],12:[function(require,module,exports){
 module.exports = function (model, property) {
   var hyperdomMeta = model._hyperdomMeta;
 
@@ -1581,7 +1532,7 @@ function generateClassName(obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{".":10,"./deprecations":8,"./domComponent":9,"./meta":12,"./mount":13,"./runRender":16,"./toVdom":19,"./vhtml":20,"./viewModel":21,"virtual-dom/virtual-hyperscript/parse-tag":35}],16:[function(require,module,exports){
+},{".":10,"./deprecations":8,"./domComponent":9,"./meta":12,"./mount":13,"./runRender":16,"./toVdom":19,"./vhtml":20,"./viewModel":21,"virtual-dom/virtual-hyperscript/parse-tag":36}],16:[function(require,module,exports){
 var hyperdom = require('.');
 var Render = require('./render');
 var rendering = require('./rendering');
@@ -1708,7 +1659,7 @@ module.exports.recursive = function (child) {
   return children;
 };
 
-},{"./isVdom":11,"./rendering":15,"virtual-dom/vnode/vtext.js":45}],20:[function(require,module,exports){
+},{"./isVdom":11,"./rendering":15,"virtual-dom/vnode/vtext.js":46}],20:[function(require,module,exports){
 'use strict';
 
 var VNode = require('virtual-dom/vnode/vnode.js');
@@ -1746,7 +1697,7 @@ function h(tagName, props, children) {
   return new VNode(tag, props, children, key, namespace);
 }
 
-},{"virtual-dom/virtual-hyperscript/hooks/soft-set-hook.js":34,"virtual-dom/vnode/is-vhook":38,"virtual-dom/vnode/vnode.js":43}],21:[function(require,module,exports){
+},{"virtual-dom/virtual-hyperscript/hooks/soft-set-hook.js":35,"virtual-dom/vnode/is-vhook":39,"virtual-dom/vnode/vnode.js":44}],21:[function(require,module,exports){
 var domComponent = require('./domComponent');
 var hyperdomMeta = require('./meta');
 var hyperdom = require('.');
@@ -1915,7 +1866,7 @@ module.exports = function (attributes) {
   return new WindowWidget(attributes);
 };
 
-},{"./domComponent":9,"./rendering":15,"virtual-dom/vnode/vtext.js":45}],23:[function(require,module,exports){
+},{"./domComponent":9,"./rendering":15,"virtual-dom/vnode/vtext.js":46}],23:[function(require,module,exports){
 /**
  * interact.js v1.2.8
  *
@@ -2115,7 +2066,7 @@ module.exports = function (attributes) {
                 else {
                   vx = vy = options.speed
                 }
- 
+
                 sx = vx * dtx;
                 sy = vy * dty;
 
@@ -6405,7 +6356,7 @@ module.exports = function (attributes) {
          |     relativePoints: [
          |         { x: 0, y: 0 },  // snap relative to the top left of the element
          |         { x: 1, y: 1 },  // and also to the bottom right
-         |     ],  
+         |     ],
          |
          |     // offset the snap target coordinates
          |     // can be an object with x/y or 'startCoords'
@@ -7902,21 +7853,113 @@ module.exports = function isObject(x) {
 };
 
 },{}],25:[function(require,module,exports){
+/*
+object-assign
+(c) Sindre Sorhus
+@license MIT
+*/
+
+'use strict';
+/* eslint-disable no-unused-vars */
+var getOwnPropertySymbols = Object.getOwnPropertySymbols;
+var hasOwnProperty = Object.prototype.hasOwnProperty;
+var propIsEnumerable = Object.prototype.propertyIsEnumerable;
+
+function toObject(val) {
+	if (val === null || val === undefined) {
+		throw new TypeError('Object.assign cannot be called with null or undefined');
+	}
+
+	return Object(val);
+}
+
+function shouldUseNative() {
+	try {
+		if (!Object.assign) {
+			return false;
+		}
+
+		// Detect buggy property enumeration order in older V8 versions.
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=4118
+		var test1 = new String('abc');  // eslint-disable-line no-new-wrappers
+		test1[5] = 'de';
+		if (Object.getOwnPropertyNames(test1)[0] === '5') {
+			return false;
+		}
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
+		var test2 = {};
+		for (var i = 0; i < 10; i++) {
+			test2['_' + String.fromCharCode(i)] = i;
+		}
+		var order2 = Object.getOwnPropertyNames(test2).map(function (n) {
+			return test2[n];
+		});
+		if (order2.join('') !== '0123456789') {
+			return false;
+		}
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
+		var test3 = {};
+		'abcdefghijklmnopqrst'.split('').forEach(function (letter) {
+			test3[letter] = letter;
+		});
+		if (Object.keys(Object.assign({}, test3)).join('') !==
+				'abcdefghijklmnopqrst') {
+			return false;
+		}
+
+		return true;
+	} catch (err) {
+		// We don't expect any of the above to throw, but better to be safe.
+		return false;
+	}
+}
+
+module.exports = shouldUseNative() ? Object.assign : function (target, source) {
+	var from;
+	var to = toObject(target);
+	var symbols;
+
+	for (var s = 1; s < arguments.length; s++) {
+		from = Object(arguments[s]);
+
+		for (var key in from) {
+			if (hasOwnProperty.call(from, key)) {
+				to[key] = from[key];
+			}
+		}
+
+		if (getOwnPropertySymbols) {
+			symbols = getOwnPropertySymbols(from);
+			for (var i = 0; i < symbols.length; i++) {
+				if (propIsEnumerable.call(from, symbols[i])) {
+					to[symbols[i]] = from[symbols[i]];
+				}
+			}
+		}
+	}
+
+	return to;
+};
+
+},{}],26:[function(require,module,exports){
 var createElement = require("./vdom/create-element.js")
 
 module.exports = createElement
 
-},{"./vdom/create-element.js":29}],26:[function(require,module,exports){
+},{"./vdom/create-element.js":30}],27:[function(require,module,exports){
 var diff = require("./vtree/diff.js")
 
 module.exports = diff
 
-},{"./vtree/diff.js":47}],27:[function(require,module,exports){
+},{"./vtree/diff.js":48}],28:[function(require,module,exports){
 var patch = require("./vdom/patch.js")
 
 module.exports = patch
 
-},{"./vdom/patch.js":32}],28:[function(require,module,exports){
+},{"./vdom/patch.js":33}],29:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook.js")
 
@@ -8015,7 +8058,7 @@ function getPrototype(value) {
     }
 }
 
-},{"../vnode/is-vhook.js":38,"is-object":24}],29:[function(require,module,exports){
+},{"../vnode/is-vhook.js":39,"is-object":24}],30:[function(require,module,exports){
 var document = require("global/document")
 
 var applyProperties = require("./apply-properties")
@@ -8063,7 +8106,7 @@ function createElement(vnode, opts) {
     return node
 }
 
-},{"../vnode/handle-thunk.js":36,"../vnode/is-vnode.js":39,"../vnode/is-vtext.js":40,"../vnode/is-widget.js":41,"./apply-properties":28,"global/document":6}],30:[function(require,module,exports){
+},{"../vnode/handle-thunk.js":37,"../vnode/is-vnode.js":40,"../vnode/is-vtext.js":41,"../vnode/is-widget.js":42,"./apply-properties":29,"global/document":6}],31:[function(require,module,exports){
 // Maps a virtual DOM tree onto a real DOM tree in an efficient manner.
 // We don't want to read all of the DOM nodes in the tree so we use
 // the in-order tree indexing to eliminate recursion down certain branches.
@@ -8150,7 +8193,7 @@ function ascending(a, b) {
     return a > b ? 1 : -1
 }
 
-},{}],31:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 var applyProperties = require("./apply-properties")
 
 var isWidget = require("../vnode/is-widget.js")
@@ -8303,7 +8346,7 @@ function replaceRoot(oldRoot, newRoot) {
     return newRoot;
 }
 
-},{"../vnode/is-widget.js":41,"../vnode/vpatch.js":44,"./apply-properties":28,"./update-widget":33}],32:[function(require,module,exports){
+},{"../vnode/is-widget.js":42,"../vnode/vpatch.js":45,"./apply-properties":29,"./update-widget":34}],33:[function(require,module,exports){
 var document = require("global/document")
 var isArray = require("x-is-array")
 
@@ -8385,7 +8428,7 @@ function patchIndices(patches) {
     return indices
 }
 
-},{"./create-element":29,"./dom-index":30,"./patch-op":31,"global/document":6,"x-is-array":48}],33:[function(require,module,exports){
+},{"./create-element":30,"./dom-index":31,"./patch-op":32,"global/document":6,"x-is-array":49}],34:[function(require,module,exports){
 var isWidget = require("../vnode/is-widget.js")
 
 module.exports = updateWidget
@@ -8402,7 +8445,7 @@ function updateWidget(a, b) {
     return false
 }
 
-},{"../vnode/is-widget.js":41}],34:[function(require,module,exports){
+},{"../vnode/is-widget.js":42}],35:[function(require,module,exports){
 'use strict';
 
 module.exports = SoftSetHook;
@@ -8421,7 +8464,7 @@ SoftSetHook.prototype.hook = function (node, propertyName) {
     }
 };
 
-},{}],35:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 'use strict';
 
 var split = require('browser-split');
@@ -8477,7 +8520,7 @@ function parseTag(tag, props) {
     return props.namespace ? tagName : tagName.toUpperCase();
 }
 
-},{"browser-split":4}],36:[function(require,module,exports){
+},{"browser-split":4}],37:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -8519,14 +8562,14 @@ function renderThunk(thunk, previous) {
     return renderedThunk
 }
 
-},{"./is-thunk":37,"./is-vnode":39,"./is-vtext":40,"./is-widget":41}],37:[function(require,module,exports){
+},{"./is-thunk":38,"./is-vnode":40,"./is-vtext":41,"./is-widget":42}],38:[function(require,module,exports){
 module.exports = isThunk
 
 function isThunk(t) {
     return t && t.type === "Thunk"
 }
 
-},{}],38:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 module.exports = isHook
 
 function isHook(hook) {
@@ -8535,7 +8578,7 @@ function isHook(hook) {
        typeof hook.unhook === "function" && !hook.hasOwnProperty("unhook"))
 }
 
-},{}],39:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualNode
@@ -8544,7 +8587,7 @@ function isVirtualNode(x) {
     return x && x.type === "VirtualNode" && x.version === version
 }
 
-},{"./version":42}],40:[function(require,module,exports){
+},{"./version":43}],41:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualText
@@ -8553,17 +8596,17 @@ function isVirtualText(x) {
     return x && x.type === "VirtualText" && x.version === version
 }
 
-},{"./version":42}],41:[function(require,module,exports){
+},{"./version":43}],42:[function(require,module,exports){
 module.exports = isWidget
 
 function isWidget(w) {
     return w && w.type === "Widget"
 }
 
-},{}],42:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 module.exports = "2"
 
-},{}],43:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 var version = require("./version")
 var isVNode = require("./is-vnode")
 var isWidget = require("./is-widget")
@@ -8637,7 +8680,7 @@ function VirtualNode(tagName, properties, children, key, namespace) {
 VirtualNode.prototype.version = version
 VirtualNode.prototype.type = "VirtualNode"
 
-},{"./is-thunk":37,"./is-vhook":38,"./is-vnode":39,"./is-widget":41,"./version":42}],44:[function(require,module,exports){
+},{"./is-thunk":38,"./is-vhook":39,"./is-vnode":40,"./is-widget":42,"./version":43}],45:[function(require,module,exports){
 var version = require("./version")
 
 VirtualPatch.NONE = 0
@@ -8661,7 +8704,7 @@ function VirtualPatch(type, vNode, patch) {
 VirtualPatch.prototype.version = version
 VirtualPatch.prototype.type = "VirtualPatch"
 
-},{"./version":42}],45:[function(require,module,exports){
+},{"./version":43}],46:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = VirtualText
@@ -8673,7 +8716,7 @@ function VirtualText(text) {
 VirtualText.prototype.version = version
 VirtualText.prototype.type = "VirtualText"
 
-},{"./version":42}],46:[function(require,module,exports){
+},{"./version":43}],47:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook")
 
@@ -8733,7 +8776,7 @@ function getPrototype(value) {
   }
 }
 
-},{"../vnode/is-vhook":38,"is-object":24}],47:[function(require,module,exports){
+},{"../vnode/is-vhook":39,"is-object":24}],48:[function(require,module,exports){
 var isArray = require("x-is-array")
 
 var VPatch = require("../vnode/vpatch")
@@ -9162,7 +9205,7 @@ function appendPatch(apply, patch) {
     }
 }
 
-},{"../vnode/handle-thunk":36,"../vnode/is-thunk":37,"../vnode/is-vnode":39,"../vnode/is-vtext":40,"../vnode/is-widget":41,"../vnode/vpatch":44,"./diff-props":46,"x-is-array":48}],48:[function(require,module,exports){
+},{"../vnode/handle-thunk":37,"../vnode/is-thunk":38,"../vnode/is-vnode":40,"../vnode/is-vtext":41,"../vnode/is-widget":42,"../vnode/vpatch":45,"./diff-props":47,"x-is-array":49}],49:[function(require,module,exports){
 var nativeIsArray = Array.isArray
 var toString = Object.prototype.toString
 
