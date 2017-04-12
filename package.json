@@ -15,7 +15,8 @@
   ],
   "dependencies": {
     "element-closest": "2.0.2",
-    "interact.js": "1.2.8"
+    "interact.js": "1.2.8",
+    "object-assign": "^4.1.1"
   },
   "peerDependencies": {
     "hyperdom": "0.2.0"

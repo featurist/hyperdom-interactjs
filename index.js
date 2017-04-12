@@ -1,30 +1,22 @@
 var hyperdom = require('hyperdom');
 var interact = require('interact.js');
 var closest = require('element-closest');
-
-var translateReg = /translate\((-?[\d\.]+)px,\s*(-?[\d\.]+)px\)/i;
-var rotateReg = /rotate\((-?[\d\.]+)deg\)/i;
+var assign = Object.assign || require('object-assign');
 var scaleReg = /scale\((-?[\d\.]+)\)/i;
+var defaultTransform = { x: 0, y: 0, scale: 1, rotation: 0 };
 
-function hyperdomInteractJs(options, vnode) {
+function hyperdomInteractJs(selector, options, vnode) {
   var binding = hyperdom.html.binding(options.binding);
-  var transform = binding.get();
+  var transform = getTransform(binding);
+  var htmlOptions = options.html || {};
+
   return hyperdom.html.component(
     {
       onadd: function(element) {
-        if (transform) {
-          element.style.transform = writeTransform(transform);
-          if (transform.width) {
-            element.style.width = transform.width + 'px';
-          }
-          if (transform.height) {
-            element.style.height = transform.height + 'px';
-          }
-        }
         if (options.draggable) {
           var dragOpts = (options.draggable === true) ?
             {} : options.draggable || {};
-          dragOpts.onmove = hyperdom.html.refreshify(makeDragMoveListener(binding));
+          dragOpts.onmove = hyperdom.html.refreshify(makeDragMoveListener(options, binding));
           var draggable = interact(element).draggable(dragOpts);
           if (options.withDraggable) {
             options.withDraggable(draggable);
@@ -33,7 +25,7 @@ function hyperdomInteractJs(options, vnode) {
         if (options.resizable) {
           var resizeOpts = (options.resizable === true) ?
             {} : options.resizable || {};
-          resizeOpts.onmove = hyperdom.html.refreshify(makeResizeListener(binding));
+          resizeOpts.onmove = hyperdom.html.refreshify(makeResizeListener(options, binding));
           var resizable = interact(element).resizable(resizeOpts);
           if (options.withResizable) {
             options.withResizable(resizable);
@@ -48,12 +40,19 @@ function hyperdomInteractJs(options, vnode) {
           }
         }
       },
-      onupdate: function (element) {
-      }
+      onupdate: function (element) { }
     },
-    vnode
+
+    hyperdom.html(selector, assign({}, htmlOptions, {
+      style: assign({
+        transform: transformStyle(transform),
+        width: transform.width != null ? transform.width + 'px' : undefined,
+        height: transform.height != null ? transform.height + 'px' : undefined
+      }, htmlOptions.style)
+    }), vnode)
   );
 }
+
 module.exports = hyperdomInteractJs;
 
 hyperdomInteractJs.dropzone = function(options, vnode) {
@@ -62,162 +61,110 @@ hyperdomInteractJs.dropzone = function(options, vnode) {
       interact(element).dropzone(options);
     }
   }, vnode);
-}
+};
 
 hyperdomInteractJs.createSnapGrid = interact.createSnapGrid;
 
-function writeTransform(t) {
-  return 'translate(' + t.x + 'px,' + t.y + 'px) scale(' + t.scale + ') rotate(' + t.rotation + 'deg)';
+function getTransform(binding) {
+  return binding.get() || defaultTransform;
 }
 
-function makeDragMoveListener(binding) {
+function transformStyle(t) {
+  return 'translate(' + t.x + 'px,' + t.y  + 'px) scale(' + t.scale + ') rotate(' + t.rotation + 'deg)';
+}
+
+function updateTransform(options, binding, updatedAttrs) {
+  var transform = getTransform(binding);
+  var newTransform = assign({}, transform, updatedAttrs);
+
+  if (options.onbeforechange) {
+    newTransform = options.onbeforechange(newTransform);
+  }
+
+  binding.set(newTransform);
+}
+
+function makeDragMoveListener(options, binding) {
   return function(event) {
-    dragMoveListener(event, binding);
+    dragMoveListener(event, options, binding);
   }
 }
 
-function dragMoveListener(event, binding) {
+function dragMoveListener(event, options, binding) {
   var target = event.target;
-  var x, y;
-  var transform = target.style.transform || target.style.webkitTransform;
-  var existingTranslate = transform.match(translateReg);
-  if (existingTranslate) {
-    x = Number(existingTranslate[1]);
-    y = Number(existingTranslate[2]);
-  } else {
-    x = y = 0;
-  }
+  var transform = getTransform(binding);
+  var newX = transform.x;
+  var newY = transform.y;
 
   // Account for scaled container when dragging
   var scaledContainer = target.closest('.js-interact-scaled-container');
+
   if (scaledContainer) {
     var existingScale = scaledContainer.style.transform.match(scaleReg);
     var scaleValue = Number(existingScale[1]);
-    x += event.dx / scaleValue;
-    y += event.dy / scaleValue;
+    newX += event.dx / scaleValue;
+    newY += event.dy / scaleValue;
   } else {
-    x += event.dx;
-    y += event.dy;
+    newX += event.dx;
+    newY += event.dy;
   }
 
-  var newTranslate = 'translate(' + x + 'px, ' + y + 'px)';
-  if (existingTranslate) {
-    target.style.webkitTransform = target.style.transform = transform.replace(translateReg, newTranslate);
-  } else {
-    target.style.webkitTransform = target.style.transform = transform + ' ' + newTranslate;
-  }
-
-  if (binding) {
-    var bindingTransform = binding.get() || {};
-    bindingTransform.x = x;
-    bindingTransform.y = y;
-    binding.set(bindingTransform);
-  }
+  updateTransform(options, binding, { x: newX, y: newY });
 }
 
-function makeResizeListener(binding) {
+function makeResizeListener(options, binding) {
   return function(event) {
-    resizeListener(event, binding);
+    resizeListener(event, options, binding);
   }
 }
 
-function resizeListener(event, binding) {
+function resizeListener(event, options, binding) {
   var target = event.target;
-  var targetWidth, targetHeight;
+  var transform = getTransform(binding);
+  var newWidth, newHeight;
   var scaledContainer = target.closest('.js-interact-scaled-container');
-  var existingObjectTransform = target.style.transform || target.style.webkitTransform;
-  var existingObjectScale = existingObjectTransform.match(scaleReg);
-
-  if (existingObjectScale) {
-    var existingObjectScaleValue = Number(existingObjectScale[1]);
-  }
+  var existingObjectScale = transform.scale;
 
   if (scaledContainer) {
     var containerScale = scaledContainer.style.transform.match(scaleReg);
     var containerScaleValue = Number(containerScale[1]);
-    if (existingObjectScale) {
-      targetWidth  = (event.rect.width / existingObjectScaleValue) / containerScaleValue;
-      targetHeight = (event.rect.height / existingObjectScaleValue) / containerScaleValue;
-    } else {
-      targetWidth  = event.rect.width / containerScaleValue;
-      targetHeight = event.rect.height / containerScaleValue;
-    }
-  } else if (existingObjectScale) {
-    targetWidth  = event.rect.width / existingObjectScaleValue;
-    targetHeight = event.rect.height / existingObjectScaleValue;
+    newWidth  = (event.rect.width / existingObjectScale) / containerScaleValue;
+    newHeight = (event.rect.height / existingObjectScale) / containerScaleValue;
   } else {
-    targetWidth  = event.rect.width;
-    targetHeight = event.rect.height;
+    newWidth  = event.rect.width / existingObjectScale;
+    newHeight = event.rect.height / existingObjectScale;
   }
 
-  target.style.width = targetWidth + 'px';
-  target.style.height = targetHeight + 'px';
-
-  if (binding) {
-    var bindingTransform = binding.get() || {};
-    bindingTransform.width = targetWidth;
-    bindingTransform.height = targetHeight;
-    binding.set(bindingTransform);
-  }
+  updateTransform(options, binding, { width: newWidth, height: newHeight });
 }
 
 function makeGestureMoveListener(options, binding) {
   return function(event) {
     if (options.rotatable) {
-      rotateMoveListener(event, binding);
+      rotateMoveListener(event, options, binding);
     }
     if (options.scalable) {
-      scaleMoveListener(event, binding);
+      scaleMoveListener(event, options, binding);
     }
   }
 }
 
-function rotateMoveListener(event, binding, refresh) {
+function rotateMoveListener(event, options, binding) {
   var target = event.target;
-  var rotation;
-  var transform = target.style.transform || target.style.webkitTransform;
-  var existingRotate = transform.match(rotateReg);
-  if (existingRotate) {
-    rotation = Number(existingRotate[1]);
-  } else {
-    rotation = 0;
-  }
-  rotation += event.da;
-  var newRotate = 'rotate(' + rotation + 'deg)';
-  if (existingRotate) {
-    target.style.webkitTransform = target.style.transform = transform.replace(rotateReg, newRotate);
-  } else {
-    target.style.webkitTransform = target.style.transform = transform + ' ' + newRotate;
-  }
+  var transform = getTransform(binding);
+  var newRotation = transform.rotation;
 
-  if (binding) {
-    var bindingTransform = binding.get() || {};
-    bindingTransform.rotation = rotation;
-    binding.set(bindingTransform);
-  }
+  newRotation += event.da;
+
+  updateTransform(options, binding, { rotation: newRotation });
 }
 
-function scaleMoveListener(event, binding, refresh) {
+function scaleMoveListener(event, options, binding) {
   var target = event.target;
-  var scale;
-  var transform = target.style.transform || target.style.webkitTransform;
-  var existingScale = transform.match(scaleReg);
-  if (existingScale) {
-    scale = Number(existingScale[1]);
-  } else {
-    scale = 1;
-  }
-  scale += event.ds;
-  var newScale = 'scale(' + scale + ')';
-  if (existingScale) {
-    target.style.webkitTransform = target.style.transform = transform.replace(scaleReg, newScale);
-  } else {
-    target.style.webkitTransform = target.style.transform = transform + ' ' + newScale;
-  }
+  var transform = getTransform(binding);
+  var newScale = transform.scale;
 
-  if (binding) {
-    var bindingTransform = binding.get() || {};
-    bindingTransform.scale = scale;
-    binding.set(bindingTransform);
-  }
+  newScale += event.ds;
+
+  updateTransform(options, binding, { scale: newScale });
 }
