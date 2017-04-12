@@ -46,8 +46,8 @@ function hyperdomInteractJs(selector, options, vnode) {
     hyperdom.html(selector, assign({}, htmlOptions, {
       style: assign({
         transform: transformStyle(transform),
-        width: transform.width != null ? transform.width + 'px' : 'auto',
-        height: transform.height != null ? transform.height + 'px' : 'auto'
+        width: transform.width != null ? transform.width + 'px' : undefined,
+        height: transform.height != null ? transform.height + 'px' : undefined
       }, htmlOptions.style)
     }), vnode)
   );

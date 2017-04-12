@@ -4,21 +4,21 @@ var h = hyperdom.html;
 
 function render(model) {
   return h('.page',
-    interact({
+    interact('.red', {
         binding: [model, 'animal'],
         draggable: true
       },
-      h('.red', 'Animal')
+      'Animal'
     ),
-    interact({
+    interact('.green', {
         binding: [model, 'vegetable'],
         draggable: {
           snap: { targets: [ interact.createSnapGrid({ x: 20, y: 20 }) ] }
         }
       },
-      h('.green', 'Vegetable')
+      'Vegetable'
     ),
-    interact({
+    interact('.blue', {
         binding: [model, 'mineral'],
         draggable: { inertia: true },
         rotatable: true,
@@ -34,7 +34,7 @@ function render(model) {
           });
         }
       },
-      h('.blue', 'Mineral')
+      'Mineral'
     ),
     interact.dropzone({
       accept: '*',
@@ -44,7 +44,7 @@ function render(model) {
       }
     }, h('.bucket', 'Bucket')),
     h('.object-container',
-      interact({
+      interact('.pink', {
           binding: [model, 'restricted'],
           draggable: {
             restrict: {
@@ -59,13 +59,13 @@ function render(model) {
           rotatable: true,
           scalable: true
         },
-        h('.pink', 'Restricted')
+        'Restricted'
       )
     ),
     h('.scaled-container.js-interact-scaled-container', {
       style: { transform: 'scale(1.6)' }
     },
-      interact({
+      interact('.pink', {
           binding: [model, 'scaledContainer'],
           draggable: {
             restrict: {
@@ -81,10 +81,10 @@ function render(model) {
           rotatable: true,
           scalable: true
         },
-        h('.pink', 'Scaled')
+        'Scaled'
       )
     ),
-    interact({
+    interact('.turquoise', {
         binding: [model, 'resizable'],
         draggable: true,
         resizable: {
@@ -94,7 +94,7 @@ function render(model) {
         rotatable: true,
         scalable: true
       },
-      h('.turquoise', 'Resizable')
+      'Resizable'
     ),
     h('pre', JSON.stringify(model, null, 2))
   );
