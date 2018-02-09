@@ -130,3 +130,6 @@ interact('.constrained', {
   }
 })
 ```
+
+## We're Hiring!
+Featurist provides full stack, feature driven development teams. Want to join us? Check out [our career opportunities](https://www.featurist.co.uk/careers/).
